@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: ShelfPanel?
     private var store: HistoryStore?
     private var clipboardMonitor: ClipboardMonitor?
+    private var localization: LocalizationManager?
     private var toggleHotkey: GlobalHotkey?
 
     /// 창 바깥을 클릭했을 때 창을 닫기 위한 감시자입니다.
@@ -26,8 +27,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.store = store
         self.clipboardMonitor = clipboardMonitor
 
+        let localization = LocalizationManager()
+        self.localization = localization
+
         setUpStatusItem()
-        setUpPanel(store: store)
+        setUpPanel(store: store, localization: localization)
         setUpGlobalShortcut()
 
         clipboardMonitor.start()
@@ -51,10 +55,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.statusItem = statusItem
     }
 
-    private func setUpPanel(store: HistoryStore) {
+    private func setUpPanel(store: HistoryStore, localization: LocalizationManager) {
         panel = ShelfPanel(
             rootView: HistoryView(
                 store: store,
+                l10n: localization,
                 onCopy: { [weak self] item in self?.copyAndClose(item) },
                 onQuit: { NSApp.terminate(nil) }
             )
@@ -124,7 +129,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 matching: [.leftMouseDown, .rightMouseDown]
             ) { [weak self] _ in
                 MainActor.assumeIsolated {
-                    self?.closePanel()
+                    guard let self, !self.isPointOverOwnWindow(NSEvent.mouseLocation) else { return }
+                    self.closePanel()
                 }
             }
         }
@@ -135,6 +141,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 MainActor.assumeIsolated { self?.closePanel() }
                 return nil
             }
+        }
+    }
+
+    /// 클릭 지점이 이 앱이 소유한 창 위인지 확인합니다.
+    ///
+    /// 언어 선택 메뉴처럼 메뉴가 열려 있는 동안의 클릭은 메뉴가 자체적으로 처리하기 때문에,
+    /// 전역 감시자에게는 앱 바깥에서 일어난 일처럼 전달됩니다. 메뉴는 별개의 창이라
+    /// 일반적인 방법으로는 구분되지 않으므로, 화면에 떠 있는 창 중에서 이 프로세스가
+    /// 소유한 것이 있는지 직접 확인해서 걸러 냅니다.
+    private func isPointOverOwnWindow(_ location: NSPoint) -> Bool {
+        guard let mainScreen = NSScreen.screens.first else { return false }
+
+        // 마우스 위치는 주 화면 왼쪽 아래가 원점이고 위로 갈수록 y가 커지는 반면,
+        // 창 목록은 주 화면 왼쪽 위가 원점이고 아래로 갈수록 y가 커지므로 변환이 필요합니다.
+        let point = CGPoint(x: location.x, y: mainScreen.frame.height - location.y)
+        let ownProcessIdentifier = ProcessInfo.processInfo.processIdentifier
+        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+
+        return windows.contains { window in
+            guard
+                window[kCGWindowOwnerPID as String] as? pid_t == ownProcessIdentifier,
+                let boundsDictionary = window[kCGWindowBounds as String] as? [String: CGFloat],
+                let bounds = CGRect(dictionaryRepresentation: boundsDictionary as CFDictionary)
+            else {
+                return false
+            }
+            return bounds.contains(point)
         }
     }
 

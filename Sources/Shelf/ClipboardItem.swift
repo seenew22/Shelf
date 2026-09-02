@@ -39,7 +39,11 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
     let originalPath: String?
 
     /// 목록에 표시할 짧은 요약 문자열입니다.
+    /// 텍스트는 본문 앞부분, 파일은 파일 이름이며, 이미지는 언어에 따라 표기가 달라지므로 비어 있습니다.
     let preview: String
+
+    /// 이미지와 파일의 크기입니다. 표시 문구를 선택된 언어로 그때그때 만들기 위해 숫자로 보관합니다.
+    let byteCount: Int?
 
     /// 같은 내용을 다시 복사했는지 판정하기 위한 지문입니다.
     let fingerprint: String

@@ -27,6 +27,13 @@ mkdir -p "${BUNDLE}/Contents/MacOS" "${BUNDLE}/Contents/Resources"
 cp "${BIN_PATH}/${APP_NAME}" "${BUNDLE}/Contents/MacOS/${APP_NAME}"
 cp "Resources/Info.plist" "${BUNDLE}/Contents/Info.plist"
 
+# 언어별 문자열 폴더를 번들에 넣습니다. 언어를 추가하면 자동으로 함께 복사됩니다.
+shopt -s nullglob
+for language_directory in Resources/*.lproj; do
+	cp -R "$language_directory" "${BUNDLE}/Contents/Resources/"
+done
+shopt -u nullglob
+
 # 의존성 패키지가 함께 만들어낸 리소스 번들을 옮겨 넣습니다.
 shopt -s nullglob
 for resource_bundle in "${BIN_PATH}"/*.bundle; do

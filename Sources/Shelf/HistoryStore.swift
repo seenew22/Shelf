@@ -84,13 +84,13 @@ final class HistoryStore: ObservableObject {
                 blobPath: nil,
                 originalPath: nil,
                 preview: Self.preview(forText: string),
+                byteCount: nil,
                 fingerprint: fingerprint
             )
 
         case .image(let data, let fileExtension):
             let name = "Shelf-\(Self.timestampSlug()).\(fileExtension)"
             guard let relativePath = writeBlob(data: data, id: id, fileName: name) else { return nil }
-            let sizeText = Self.byteCountFormatter.string(fromByteCount: Int64(data.count))
             return ClipboardItem(
                 id: id,
                 kind: .image,
@@ -98,7 +98,8 @@ final class HistoryStore: ObservableObject {
                 text: nil,
                 blobPath: relativePath,
                 originalPath: nil,
-                preview: "이미지 · \(sizeText)",
+                preview: "",
+                byteCount: data.count,
                 fingerprint: fingerprint
             )
 
@@ -120,6 +121,7 @@ final class HistoryStore: ObservableObject {
                 blobPath: relativePath,
                 originalPath: url.path,
                 preview: fileName,
+                byteCount: byteCount,
                 fingerprint: fingerprint
             )
         }
@@ -278,10 +280,4 @@ final class HistoryStore: ObservableObject {
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         return formatter.string(from: Date())
     }
-
-    private static let byteCountFormatter: ByteCountFormatter = {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter
-    }()
 }

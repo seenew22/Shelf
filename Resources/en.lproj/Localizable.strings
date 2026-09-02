@@ -1,0 +1,12 @@
+"empty.title" = "Nothing copied yet";
+"empty.subtitle" = "Anything you copy will pile up here";
+"footer.clearAll" = "Clear all";
+"footer.quit" = "Quit";
+"row.delete" = "Delete this item";
+"row.justNow" = "Just now";
+"row.image" = "Image · %@";
+"hint.text" = "Click to copy it back, or drag it out as text";
+"hint.image" = "Click to copy it back, or drag it out as an image file";
+"hint.file" = "Click to copy it back, or drag it out as a file";
+"menu.language" = "Language";
+"language.system" = "Match system";
