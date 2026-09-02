@@ -137,10 +137,21 @@ project is therefore a plain **Swift Package Manager** package, and `build.sh`
 assembles the compiled binary into a `Shelf.app` bundle and ad-hoc signs it.
 
 ```bash
-./build.sh              # release build → ./Shelf.app
-./build.sh release run  # build, kill any running instance, and launch
-./build.sh debug        # debug build
+./build.sh              # release build for this machine's architecture → ./Shelf.app
+./build.sh --run        # build, kill any running instance, and launch
+./build.sh --debug      # debug build
+./build.sh --universal  # arm64 + x86_64, for handing the app to another Mac
 ```
+
+`--universal` cannot use SwiftPM's `--arch` flag, which needs Xcode's `xcbuild`. It
+builds the second architecture into a separate scratch path with an explicit target
+triple and joins the two with `lipo`. If that second build fails it warns and falls
+back to a native-only bundle rather than aborting.
+
+Installation on another machine is documented for the owner in `INSTALL.md`. The one
+thing to remember when changing distribution: the app is ad-hoc signed, so `spctl`
+rejects it and a quarantined copy (AirDrop, download) will not open until
+`xattr -dr com.apple.quarantine` is run on it.
 
 `swift build` alone is enough to type-check; the bundle step only matters for running.
 If Xcode is installed later, `Package.swift` opens directly in it with no conversion.

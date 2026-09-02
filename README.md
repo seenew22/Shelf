@@ -5,21 +5,35 @@
 끌어내면 다른 앱에 진짜 파일로 떨어집니다. 모든 데이터는 이 맥 안에만 저장되며
 서버와 통신하지 않습니다.
 
-## 빌드와 실행
+## 설치
 
-Xcode는 필요하지 않습니다. Command Line Tools만 설치되어 있으면 됩니다.
+macOS 14 이상이 필요하며, 애플 실리콘과 인텔 맥을 모두 지원합니다.
+Xcode는 필요하지 않고 Command Line Tools만 있으면 됩니다.
 
 ```bash
-./build.sh            # 릴리스 구성으로 빌드해서 Shelf.app 을 만듭니다
-./build.sh release run  # 빌드한 뒤 바로 실행합니다
-./build.sh debug      # 디버그 구성으로 빌드합니다
+xcode-select --install     # 이미 설치되어 있다면 건너뜁니다
+git clone https://github.com/seenew22/Shelf.git
+cd Shelf
+./build.sh --run
 ```
 
-빌드가 끝나면 저장소 안에 `Shelf.app` 이 생깁니다. `open Shelf.app` 으로 실행하면
-메뉴 바에 트레이 모양 아이콘이 나타납니다. Dock에는 아이콘이 생기지 않습니다.
+메뉴 바 오른쪽에 트레이 모양 아이콘이 나타나면 성공입니다. Dock에는 아이콘이 생기지
+않습니다.
 
-로그인할 때 자동으로 켜지게 하려면 `시스템 설정 → 일반 → 로그인 항목` 에
-`Shelf.app` 을 추가하면 됩니다.
+다른 맥으로 앱을 옮기는 방법, 로그인할 때 자동 실행하는 방법, 문제가 생겼을 때의
+대처는 **[INSTALL.md](INSTALL.md)** 에 정리해 두었습니다.
+
+## 빌드 옵션
+
+```bash
+./build.sh                # 이 맥의 구조에 맞춰 릴리스로 빌드합니다
+./build.sh --run          # 빌드한 뒤 바로 실행합니다
+./build.sh --debug        # 디버그 구성으로 빌드합니다
+./build.sh --universal    # 애플 실리콘과 인텔 양쪽에서 도는 앱을 만듭니다
+```
+
+옵션은 함께 쓸 수 있습니다. 다른 맥에 넘겨줄 앱을 만들 때는 `--universal` 을 붙이면
+받는 쪽의 구조를 신경 쓰지 않아도 됩니다.
 
 ## 사용법
 
