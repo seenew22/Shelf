@@ -37,6 +37,14 @@ struct HistoryView: View {
         .environment(\.locale, l10n.locale)
     }
 
+    /// 번들에 기록된 버전과, 빌드에 사용한 git 커밋 해시입니다.
+    private static let appVersion: String = {
+        let information = Bundle.main.infoDictionary
+        let version = information?["CFBundleShortVersionString"] as? String ?? "?"
+        let revision = information?["CFBundleVersion"] as? String ?? ""
+        return revision.isEmpty ? version : "\(version) (\(revision))"
+    }()
+
     // MARK: - 구성 요소
 
     private var header: some View {
@@ -118,6 +126,12 @@ struct HistoryView: View {
                 store.removeAll()
             }
             .disabled(store.items.isEmpty)
+
+            Spacer()
+
+            // 어느 시점의 소스로 만든 앱인지 확인할 수 있게 버전과 커밋 해시를 적어 둡니다.
+            Text(Self.appVersion)
+                .foregroundStyle(.tertiary)
 
             Spacer()
 

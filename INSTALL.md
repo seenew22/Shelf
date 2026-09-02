@@ -34,10 +34,35 @@ xcode-select --install
 swift --version
 ```
 
-### 2. 내려받아서 빌드하기
+### 2. 저장소 접근 권한 준비하기
+
+**이 저장소는 비공개입니다.** 그래서 처음 쓰는 맥에서는 `git clone` 이 곧바로 되지 않고
+인증을 요구합니다. 아래 셋 중 하나를 고르면 됩니다.
+
+**(1) GitHub CLI 로 로그인하기 — 가장 간단합니다**
 
 ```bash
-git clone https://github.com/seenew22/Shelf.git
+brew install gh      # Homebrew 가 없다면 https://brew.sh 참고
+gh auth login        # 브라우저가 열리면 GitHub 계정으로 승인합니다
+```
+
+**(2) SSH 키 쓰기 — 이미 그 맥에 키를 등록해 두었다면**
+
+아래 3단계의 주소를 `git@github.com:seenew22/Shelf.git` 로 바꿔서 클론하면 됩니다.
+
+**(3) 저장소를 공개로 바꾸기**
+
+`저장소 → Settings → General → Danger Zone → Change repository visibility` 에서
+공개로 바꾸면 인증 절차 자체가 사라집니다. 다만 소스가 누구에게나 보이게 되므로,
+그래도 괜찮은지 먼저 판단하셔야 합니다. 개인 정보나 열쇠 값이 코드에 들어 있지는
+않으니 기술적으로는 공개해도 문제가 없습니다.
+
+인증이 번거롭다면 아래의 **방법 B** 로 앱만 옮기는 편이 더 빠릅니다.
+
+### 3. 내려받아서 빌드하기
+
+```bash
+gh repo clone seenew22/Shelf     # 또는: git clone https://github.com/seenew22/Shelf.git
 cd Shelf
 ./build.sh --run
 ```
@@ -45,7 +70,7 @@ cd Shelf
 빌드가 끝나면 메뉴 바 오른쪽에 트레이 모양 아이콘이 나타납니다. Dock에는 아이콘이
 생기지 않습니다. 이것이 정상입니다.
 
-### 3. 응용 프로그램 폴더로 옮기기
+### 4. 응용 프로그램 폴더로 옮기기
 
 내려받은 폴더 안에서 계속 실행해도 동작하지만, 폴더를 옮기거나 지우면 앱도 함께
 사라집니다. 계속 쓰실 거라면 옮겨 두는 편이 좋습니다.
@@ -161,10 +186,27 @@ rm -rf ~/Library/"Application Support"/Shelf
 defaults delete com.seenew.Shelf
 ```
 
-## 새 버전으로 갱신하기
+## 버전 확인과 갱신
 
-소스에서 빌드해서 쓰고 있다면 아래와 같이 합니다. 히스토리는 앱 바깥에 저장되므로
-그대로 유지됩니다.
+### 지금 도는 앱의 버전 확인하기
+
+히스토리 창 아래쪽 가운데에 `0.1.0 (751e165)` 처럼 표시됩니다. 괄호 안은 그 앱을
+만들 때 사용한 git 커밋 해시입니다. 노트북 두 대에서 이 값을 비교하면 어느 쪽이 더
+최신인지 바로 알 수 있고, `git log` 에서 그 해시를 찾아 무엇이 달라졌는지도 확인할
+수 있습니다. 해시 뒤에 `+` 가 붙어 있다면 커밋하지 않은 수정이 섞인 채로 빌드했다는
+뜻입니다.
+
+터미널에서 확인하려면 아래와 같이 합니다.
+
+```bash
+plutil -p /Applications/Shelf.app/Contents/Info.plist | grep CFBundleVersion
+```
+
+### 갱신하기
+
+자동 갱신 기능은 없습니다. 소스에서 빌드해서 쓰고 있다면 아래와 같이 직접
+받아서 다시 빌드합니다. 히스토리와 언어 설정은 앱 바깥에 저장되므로 그대로
+유지됩니다.
 
 ```bash
 cd Shelf
@@ -172,3 +214,16 @@ git pull
 pkill -x Shelf
 ./build.sh --run
 ```
+
+응용 프로그램 폴더에 넣어 두었다면 마지막 두 줄을 아래로 바꿉니다.
+
+```bash
+./build.sh
+pkill -x Shelf
+rm -rf /Applications/Shelf.app && mv Shelf.app /Applications/
+open /Applications/Shelf.app
+```
+
+**방법 B로 앱만 옮겨서 쓰는 맥**에는 갱신 경로가 따로 없습니다. 새 앱을 다시 만들어
+같은 방식으로 옮기고 덮어써야 합니다. 두 대 모두에서 자주 갱신하실 것 같다면, 두
+번째 맥도 방법 A로 설치해 두는 편이 훨씬 편합니다.

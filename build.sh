@@ -75,6 +75,14 @@ fi
 
 cp "Resources/Info.plist" "${BUNDLE}/Contents/Info.plist"
 
+# 어느 시점의 소스로 만든 앱인지 알 수 있도록 git 커밋 해시를 새겨 둡니다.
+# 커밋하지 않은 수정이 남아 있으면 뒤에 +를 붙입니다.
+GIT_REVISION="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+if ! git diff --quiet HEAD 2>/dev/null; then
+	GIT_REVISION="${GIT_REVISION}+"
+fi
+plutil -replace CFBundleVersion -string "$GIT_REVISION" "${BUNDLE}/Contents/Info.plist"
+
 # 언어별 문자열 폴더를 번들에 넣습니다. 언어를 추가하면 자동으로 함께 복사됩니다.
 shopt -s nullglob
 for language_directory in Resources/*.lproj; do
@@ -94,6 +102,7 @@ codesign --force --sign - "$BUNDLE" >/dev/null 2>&1
 
 echo "✓ 빌드가 완료되었습니다: ${BUNDLE}"
 echo "  지원 구조: $(lipo -archs "${BUNDLE}/Contents/MacOS/${APP_NAME}")"
+echo "  버전: $(plutil -extract CFBundleShortVersionString raw "${BUNDLE}/Contents/Info.plist") (${GIT_REVISION})"
 
 if [ "$SHOULD_RUN" = "yes" ]; then
 	echo "▸ 실행 중인 기존 인스턴스를 종료합니다"

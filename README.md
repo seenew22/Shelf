@@ -12,10 +12,13 @@ Xcode는 필요하지 않고 Command Line Tools만 있으면 됩니다.
 
 ```bash
 xcode-select --install     # 이미 설치되어 있다면 건너뜁니다
-git clone https://github.com/seenew22/Shelf.git
+gh repo clone seenew22/Shelf
 cd Shelf
 ./build.sh --run
 ```
+
+이 저장소는 비공개라서 처음 쓰는 맥에서는 `gh auth login` 으로 한 번 로그인해 두어야
+합니다. 인증 방법과 대안은 [INSTALL.md](INSTALL.md) 에 정리해 두었습니다.
 
 메뉴 바 오른쪽에 트레이 모양 아이콘이 나타나면 성공입니다. Dock에는 아이콘이 생기지
 않습니다.
@@ -45,6 +48,7 @@ cd Shelf
 | 항목 하나 삭제 | 항목 위에 마우스를 올린 뒤 오른쪽의 × 버튼 클릭 |
 | 전체 삭제 | 아래쪽 `모두 지우기` |
 | 언어 바꾸기 | 오른쪽 위 지구본 버튼 |
+| 버전 확인 | 창 아래쪽 가운데에 버전과 빌드에 쓴 커밋 해시가 표시됩니다 |
 | 창 닫기 | `Esc`, 또는 창 바깥 클릭 |
 
 ## 언어
