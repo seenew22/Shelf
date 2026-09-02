@@ -4,6 +4,7 @@
 "footer.quit" = "Quit";
 "row.delete" = "Delete this item";
 "row.justNow" = "Just now";
+"row.copied" = "Copied";
 "row.image" = "Image · %@";
 "hint.text" = "Click to copy it back, or drag it out as text";
 "hint.image" = "Click to copy it back, or drag it out as an image file";

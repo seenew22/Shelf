@@ -1,5 +1,19 @@
 import AppKit
+import ImageIO
 import SwiftUI
+import UniformTypeIdentifiers
+
+/// 이미지 파일에서 축소본을 만듭니다. 원본 전체를 메모리에 올리지 않습니다.
+private func makeThumbnail(from url: URL, maximumPixelSize: Int) -> NSImage? {
+    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+    let options: [CFString: Any] = [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+        kCGImageSourceThumbnailMaxPixelSize: maximumPixelSize,
+    ]
+    guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+    return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
+}
 
 /// 메뉴 바 아이콘을 눌렀을 때 나타나는 히스토리 목록 화면입니다.
 struct HistoryView: View {
@@ -11,6 +25,9 @@ struct HistoryView: View {
 
     /// 종료 메뉴를 눌렀을 때 호출됩니다.
     var onQuit: () -> Void
+
+    /// 방금 클릭해서 클립보드에 올린 항목입니다. 창이 닫히기 직전에 잠깐 표시해 줍니다.
+    @State private var copiedItemID: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,6 +52,8 @@ struct HistoryView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .environment(\.locale, l10n.locale)
+        // 창을 열 때마다 기준 시각이 갱신되므로, 그 시점에 지난번 복사 표시를 지웁니다.
+        .onChange(of: store.referenceDate) { copiedItemID = nil }
     }
 
     /// 번들에 기록된 버전과, 빌드에 사용한 git 커밋 해시입니다.
@@ -110,10 +129,14 @@ struct HistoryView: View {
                             payloadURL: store.payloadURL(for: item),
                             referenceDate: referenceDate,
                             l10n: l10n,
-                            onCopy: { onCopy(item) },
+                            isCopied: copiedItemID == item.id,
+                            onCopy: {
+                                copiedItemID = item.id
+                                onCopy(item)
+                            },
                             onDelete: { store.remove(item) }
                         )
-                        Divider().padding(.leading, 44)
+                        Divider().padding(.leading, HistoryRow.iconSide + 22)
                     }
                 }
             }
@@ -154,8 +177,14 @@ private struct HistoryRow: View {
 
     @ObservedObject var l10n: LocalizationManager
 
+    /// 방금 이 항목을 클릭해서 클립보드에 올렸는지 여부입니다.
+    let isCopied: Bool
+
     let onCopy: () -> Void
     let onDelete: () -> Void
+
+    /// 목록 왼쪽 아이콘 칸의 한 변 길이입니다.
+    static let iconSide: CGFloat = 34
 
     @State private var isHovering = false
     @State private var thumbnail: NSImage?
@@ -163,7 +192,7 @@ private struct HistoryRow: View {
     var body: some View {
         HStack(spacing: 10) {
             icon
-                .frame(width: 24, height: 24)
+                .frame(width: HistoryRow.iconSide, height: HistoryRow.iconSide)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(previewText)
@@ -176,7 +205,13 @@ private struct HistoryRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            if isHovering {
+            if isCopied {
+                Label(l10n[.rowCopied], systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(Color.accentColor)
+                    .labelStyle(.titleAndIcon)
+                    .transition(.opacity)
+            } else if isHovering {
                 Button {
                     onDelete()
                 } label: {
@@ -190,12 +225,18 @@ private struct HistoryRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .contentShape(Rectangle())
-        .background(isHovering ? Color.primary.opacity(0.06) : Color.clear)
+        .background(rowBackground)
+        .animation(.easeOut(duration: 0.12), value: isCopied)
         .onHover { isHovering = $0 }
         .onTapGesture(perform: onCopy)
         .onDrag(makeItemProvider)
         .task(id: item.id) { await loadThumbnailIfNeeded() }
         .help(dragHint)
+    }
+
+    private var rowBackground: Color {
+        if isCopied { return Color.accentColor.opacity(0.22) }
+        return isHovering ? Color.primary.opacity(0.06) : Color.clear
     }
 
     @ViewBuilder
@@ -204,7 +245,12 @@ private struct HistoryRow: View {
             Image(nsImage: thumbnail)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 3))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                // 흰 바탕에 가까운 이미지도 배경과 구분되도록 옅은 테두리를 둡니다.
+                .overlay {
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(Color.primary.opacity(0.15), lineWidth: 0.5)
+                }
         } else {
             Image(systemName: item.symbolName)
                 .font(.system(size: 15))
@@ -260,12 +306,15 @@ private struct HistoryRow: View {
     }
 
     /// 이미지 항목에 한해 작은 미리보기를 만들어 둡니다.
+    ///
+    /// 원본을 통째로 읽어서 줄이면 큰 스크린샷 하나에도 메모리를 크게 쓰므로,
+    /// ImageIO에게 축소본만 만들어 달라고 요청합니다. 가로세로 비율도 그대로 유지됩니다.
     private func loadThumbnailIfNeeded() async {
         guard item.kind == .image, thumbnail == nil, let payloadURL else { return }
-        let image = await Task.detached(priority: .utility) {
-            NSImage(contentsOf: payloadURL)
+        // 레티나 화면에서도 또렷하도록 표시 크기의 세 배로 만듭니다.
+        let maximumPixelSize = Int(HistoryRow.iconSide * 3)
+        thumbnail = await Task.detached(priority: .utility) {
+            makeThumbnail(from: payloadURL, maximumPixelSize: maximumPixelSize)
         }.value
-        image?.size = NSSize(width: 24, height: 24)
-        thumbnail = image
     }
 }

@@ -4,6 +4,7 @@
 "footer.quit" = "종료";
 "row.delete" = "이 항목을 삭제합니다";
 "row.justNow" = "방금";
+"row.copied" = "복사됨";
 "row.image" = "이미지 · %@";
 "hint.text" = "클릭하면 복사되고, 끌어내면 텍스트로 떨어집니다";
 "hint.image" = "클릭하면 복사되고, 끌어내면 이미지 파일로 떨어집니다";

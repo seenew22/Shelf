@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var localization: LocalizationManager?
     private var toggleHotkey: GlobalHotkey?
 
+    /// 복사 표시를 잠깐 보여 준 뒤 창을 닫기 위해 예약해 둔 작업입니다.
+    private var pendingCloseTask: Task<Void, Never>?
+
     /// 창 바깥을 클릭했을 때 창을 닫기 위한 감시자입니다.
     private var outsideClickMonitor: Any?
 
@@ -93,6 +96,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func openPanel() {
         guard let panel, let button = statusItem?.button else { return }
 
+        pendingCloseTask?.cancel()
+        pendingCloseTask = nil
+
         store?.refreshReferenceDate()
         panel.position(below: button)
         // 앱을 활성 상태로 만들지 않고 창만 앞으로 내보냅니다.
@@ -103,18 +109,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func closePanel() {
+        pendingCloseTask?.cancel()
+        pendingCloseTask = nil
         panel?.orderOut(nil)
         statusItem?.button?.highlight(false)
         removeEventMonitors()
     }
 
     /// 항목을 클립보드에 다시 올린 뒤 창을 닫습니다.
+    ///
+    /// 복사 자체는 즉시 이루어지지만, 창을 곧바로 닫아 버리면 정말 복사가 되었는지
+    /// 알 수 없으므로 확인 표시를 볼 수 있을 만큼만 기다렸다가 닫습니다.
     private func copyAndClose(_ item: ClipboardItem) {
         guard let store else { return }
         let changeCount = store.copyToPasteboard(item)
         // 방금 우리가 만든 변경이므로, 감시자가 이를 새 복사로 오인하지 않도록 알려 둡니다.
         clipboardMonitor?.acknowledgeSelfWrite(changeCount: changeCount)
-        closePanel()
+
+        pendingCloseTask?.cancel()
+        pendingCloseTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            self?.closePanel()
+        }
     }
 
     // MARK: - 창을 닫아야 하는 상황 감지

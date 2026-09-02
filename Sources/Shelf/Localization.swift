@@ -40,6 +40,7 @@ enum StringKey: String {
     case footerQuit = "footer.quit"
     case rowDelete = "row.delete"
     case rowJustNow = "row.justNow"
+    case rowCopied = "row.copied"
     case rowImage = "row.image"
     case hintText = "hint.text"
     case hintImage = "hint.image"
