@@ -30,7 +30,22 @@ Xcode는 필요하지 않습니다. Command Line Tools만 설치되어 있으면
 | 다른 앱으로 보내기 | 항목을 잡아서 Finder, Slack, Figma 등으로 끌어다 놓기 |
 | 항목 하나 삭제 | 항목 위에 마우스를 올린 뒤 오른쪽의 × 버튼 클릭 |
 | 전체 삭제 | 아래쪽 `모두 지우기` |
+| 언어 바꾸기 | 오른쪽 위 지구본 버튼 |
 | 창 닫기 | `Esc`, 또는 창 바깥 클릭 |
+
+## 언어
+
+오른쪽 위 지구본 버튼에서 표시 언어를 고를 수 있습니다. 기본값은 `시스템 설정 따름`
+이며, 한국어와 영어 중 하나로 고정할 수도 있습니다. 고른 값은 다음 실행에도 유지됩니다.
+목록에 담긴 내용 자체는 복사한 그대로 보여 주며, 번역하지 않습니다.
+
+언어를 추가하려면 세 군데만 손보면 됩니다.
+
+1. `Resources/<언어 코드>.lproj/Localizable.strings` 를 만들고 기존 파일의 키를 그대로 번역합니다.
+2. `AppLanguage` 열거형에 항목을 추가하고 `menuTitle` 에 그 언어로 된 이름을 적습니다.
+3. `Resources/Info.plist` 의 `CFBundleLocalizations` 에 언어 코드를 넣습니다.
+
+빌드 스크립트가 `Resources/*.lproj` 를 통째로 번들에 넣기 때문에 그 외의 작업은 없습니다.
 
 ## 동작 방식
 
@@ -58,6 +73,7 @@ Xcode는 필요하지 않습니다. Command Line Tools만 설치되어 있으면
 | `ClipboardItem.swift` | 항목 모델 |
 | `ShelfPanel.swift` | 포커스를 빼앗지 않는 떠 있는 창 |
 | `HistoryView.swift` | 목록 화면 |
+| `Localization.swift` | 표시 언어 선택과 문자열 조회 |
 | `GlobalHotkey.swift` | 전역 단축키 등록 |
 
 ## 아직 만들지 않은 것
@@ -65,3 +81,4 @@ Xcode는 필요하지 않습니다. Command Line Tools만 설치되어 있으면
 - 화면 가장자리에 마우스를 대면 열리는 엣지 호버 패널
 - 검색 기능
 - 단축키를 앱 안에서 바꾸는 화면 (지금은 `GlobalHotkey` 의 상수를 고쳐야 합니다)
+- 한국어와 영어 외의 언어

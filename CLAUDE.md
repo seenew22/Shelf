@@ -79,6 +79,12 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
 - **`HistoryStore`** — `ObservableObject`: ordered list, **capped at 50**, dedupe on
   re-copy (existing match moves to top), persists to disk, loads on launch.
   Files over 50 MB are recorded by original path only, with no blob copy.
+- **`LocalizationManager`** — the UI ships in Korean and English, switchable from a
+  globe button in the panel header and persisted in `UserDefaults`. Strings live in
+  `Resources/<code>.lproj/Localizable.strings`; `build.sh` copies every `.lproj`
+  folder into the bundle, so adding a language needs no build changes. Keys go
+  through the `StringKey` enum rather than raw strings, so a typo fails to compile.
+  Anything derived from the user's own clipboard content is never translated.
 - **Global hotkey (⌘⇧V)** — `GlobalHotkey.swift`, a thin wrapper over Carbon's
   `RegisterEventHotKey`. No third-party dependency; the project has **zero** SPM
   dependencies. The combination lives in two constants at the bottom of that file.
@@ -113,7 +119,11 @@ Match case-insensitively. Never persist a skipped item.
 - Swift 5.9 tools version, built with Swift 6.2. Deployment target **macOS 14**.
 - **No third-party dependencies.** If one ever seems necessary, first check that it
   compiles without Xcode (see "Deviations" below).
-- UI strings and source comments are written in Korean, matching the owner's language.
+- Source comments are written in Korean, matching the owner's language. UI strings are
+  **not** hardcoded — they go through `LocalizationManager` (see Architecture).
+- Anything shown in the list that depends on language must be computed at display time,
+  never baked into the stored model. `ClipboardItem` therefore keeps an image's
+  `byteCount` as a number, and the "Image · 4 kB" label is built when the row renders.
 - Menu bar / agent app only — no Dock icon, no main window.
 - No telemetry, no network calls. This app never talks to a server.
 - Keep commits small and logical; explain each native concept the first time it shows up.
@@ -205,5 +215,16 @@ Everything below was exercised on the real machine, not just reasoned about.
 | Privacy markers ignored | Pass — a pasteboard write carrying `org.nspasteboard.ConcealedType` was not stored |
 | 50-item cap | Pass — 60 copies left exactly 50 entries, and the dropped items' blob folders were deleted |
 
+| Language switching | Pass — the globe menu switches Korean/English live, persists to `UserDefaults`, and survives a restart |
+
 One caveat worth repeating to the owner: the drop was verified into Finder. Dropping
 into a specific creative app (Figma, Photoshop) is worth a manual sanity check.
+
+### One more trap found while adding the language menu
+
+The global "click outside to dismiss" monitor also fires for clicks on the app's own
+**menu** windows, because menu tracking runs its own event loop and the click never
+reaches the app the ordinary way. Picking a language therefore dismissed the whole
+panel. `AppDelegate.isPointOverOwnWindow(_:)` now checks the click location against
+every on-screen window owned by this process — `NSApp.windows` is not enough, since
+menu windows do not appear there.

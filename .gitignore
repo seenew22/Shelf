@@ -18,3 +18,5 @@ DerivedData/
 # Claude Code 세션 상태
 .claude/state/
 .claude/sessions/
+.claude/logs/
+.claude/memory/
