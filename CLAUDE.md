@@ -77,7 +77,18 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   needs Accessibility permission. Off by default (`Preferences`), since a shelf that
   appears when you brush the screen edge is worse than one you have to ask for.
   Only an edge-opened panel closes itself when the pointer wanders off, and never
-  while a mouse button is down, so dragging an item out still works.
+  while a mouse button is down, so dragging an item out still works. An edge that
+  abuts another display is ignored: that boundary is the corridor the cursor crosses
+  between screens, so opening there is pure obstruction. The probe is a point one
+  point beyond the edge at the cursor's own height, so displays of different heights
+  still trigger along the stretch where nothing adjoins.
+- **Panel animation** — `ShelfPanel.present(slidingFrom:)` / `dismiss()` drive the
+  window frame and alpha through `NSAnimationContext`, so the panel slides in from
+  whichever direction it belongs to and retreats the same way. The system's own
+  window animation is switched off (`animationBehavior = .none`) to avoid fighting
+  it. Because the window lingers on screen during the closing animation,
+  `isVisible` no longer answers "is the panel open" - `AppDelegate.isPanelPresented`
+  does.
 - **`ClipboardMonitor`** — a `Timer` (~0.4s) that polls
   `NSPasteboard.general.changeCount`. macOS has **no** "clipboard changed"
   notification, so polling changeCount is the standard, correct approach. When the

@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import SwiftUI
 
 /// 히스토리 목록을 담는 떠 있는 창입니다.
@@ -12,6 +13,34 @@ final class ShelfPanel: NSPanel {
 
     static let contentWidth: CGFloat = 340
     static let contentHeight: CGFloat = 460
+
+    /// 창이 어느 쪽에서 밀려 나올지를 나타냅니다.
+    enum SlideOrigin {
+        /// 화면 왼쪽 가장자리에서 밀려 나옵니다.
+        case leadingEdge
+        /// 화면 오른쪽 가장자리에서 밀려 나옵니다.
+        case trailingEdge
+        /// 메뉴 바 아이콘 아래로 내려옵니다.
+        case above
+        /// 제자리에서 살짝 떠오릅니다. 마우스 커서 옆에 열 때 사용합니다.
+        case inPlace
+
+        /// 나타나기 직전에 창이 놓일 위치의 어긋난 정도입니다.
+        var offset: CGSize {
+            switch self {
+            case .leadingEdge: CGSize(width: -32, height: 0)
+            case .trailingEdge: CGSize(width: 32, height: 0)
+            case .above: CGSize(width: 0, height: 18)
+            case .inPlace: CGSize(width: 0, height: -10)
+            }
+        }
+    }
+
+    private static let presentDuration: TimeInterval = 0.20
+    private static let dismissDuration: TimeInterval = 0.13
+
+    private var slideOrigin: SlideOrigin = .inPlace
+    private var isDismissing = false
 
     /// 테두리가 없는 창은 기본적으로 키 입력을 받지 못하므로 직접 허용해 줍니다.
     override var canBecomeKey: Bool { true }
@@ -34,10 +63,79 @@ final class ShelfPanel: NSPanel {
         backgroundColor = .clear
         hasShadow = true
         isMovable = false
-        animationBehavior = .utilityWindow
+        // 나타나고 사라지는 움직임을 직접 그리므로 시스템 기본 효과는 끕니다.
+        animationBehavior = .none
 
         contentView = NSHostingView(rootView: rootView)
     }
+
+    // MARK: - 나타나고 사라지기
+
+    /// 지정한 방향에서 밀려 나오면서 창을 띄웁니다.
+    ///
+    /// 위치는 미리 잡아 둔 상태여야 합니다. 그 위치를 목적지로 삼고, 조금 어긋난 자리에서
+    /// 투명한 채로 시작해서 제자리로 미끄러져 들어옵니다.
+    func present(slidingFrom origin: SlideOrigin) {
+        slideOrigin = origin
+        isDismissing = false
+
+        let destination = frame
+        let start = NSRect(
+            x: destination.origin.x + origin.offset.width,
+            y: destination.origin.y + origin.offset.height,
+            width: destination.width,
+            height: destination.height
+        )
+
+        setFrame(start, display: false)
+        alphaValue = 0
+        orderFrontRegardless()
+        makeKey()
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Self.presentDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            context.allowsImplicitAnimation = true
+            animator().setFrame(destination, display: true)
+            animator().alphaValue = 1
+        }
+    }
+
+    /// 들어왔던 방향으로 되돌아가면서 창을 감춥니다.
+    func dismiss() {
+        guard isVisible, !isDismissing else {
+            orderOut(nil)
+            return
+        }
+        isDismissing = true
+
+        let current = frame
+        let departure = NSRect(
+            x: current.origin.x + slideOrigin.offset.width,
+            y: current.origin.y + slideOrigin.offset.height,
+            width: current.width,
+            height: current.height
+        )
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Self.dismissDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            context.allowsImplicitAnimation = true
+            animator().setFrame(departure, display: true)
+            animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.isDismissing else { return }
+                self.isDismissing = false
+                self.orderOut(nil)
+                // 다음에 띄울 때를 위해 원래 상태로 되돌려 둡니다.
+                self.alphaValue = 1
+                self.setFrame(current, display: false)
+            }
+        }
+    }
+
+    // MARK: - 위치 잡기
 
     /// 상태 항목 아이콘 바로 아래에 창을 배치합니다.
     /// 화면 가장자리를 넘어가지 않도록 위치를 보정합니다.

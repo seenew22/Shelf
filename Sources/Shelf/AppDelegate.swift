@@ -18,6 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let edgeHoverMonitor = EdgeHoverMonitor()
     private var toggleHotkey: GlobalHotkey?
 
+    /// 창이 지금 열려 있는지 여부입니다.
+    /// 사라지는 동안에도 창 자체는 잠시 화면에 남으므로 `isVisible` 로는 판단할 수 없습니다.
+    private var isPanelPresented = false
+
     /// 복사 표시를 잠깐 보여 준 뒤 창을 닫기 위해 예약해 둔 작업입니다.
     private var pendingCloseTask: Task<Void, Never>?
 
@@ -114,8 +118,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func togglePanel(anchoredTo anchor: PanelAnchor) {
-        guard let panel else { return }
-        if panel.isVisible {
+        if isPanelPresented {
             closePanel()
         } else {
             openPanel(anchoredTo: anchor)
@@ -131,18 +134,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store?.refreshReferenceDate()
         selection.reset()
 
+        // 창이 어디에 놓이고, 어느 방향에서 밀려 나올지를 함께 정합니다.
+        let slideOrigin: ShelfPanel.SlideOrigin
         switch anchor {
         case .statusItem:
             guard let button = statusItem?.button else { return }
             panel.position(below: button)
+            slideOrigin = .above
         case .mouseCursor:
             panel.position(near: NSEvent.mouseLocation)
+            slideOrigin = .inPlace
         case .screenEdge(let edge, let screen, let cursorHeight):
             panel.position(atEdge: edge, on: screen, cursorHeight: cursorHeight)
+            slideOrigin = edge == .left ? .leadingEdge : .trailingEdge
         }
+
         // 앱을 활성 상태로 만들지 않고 창만 앞으로 내보냅니다.
-        panel.orderFrontRegardless()
-        panel.makeKey()
+        panel.present(slidingFrom: slideOrigin)
+        isPanelPresented = true
         statusItem?.button?.highlight(true)
 
         // 가장자리로 연 창만 마우스가 멀어졌을 때 스스로 닫히게 합니다.
@@ -156,9 +165,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func closePanel() {
+        guard isPanelPresented else { return }
+        isPanelPresented = false
         pendingCloseTask?.cancel()
         pendingCloseTask = nil
-        panel?.orderOut(nil)
+        panel?.dismiss()
         statusItem?.button?.highlight(false)
         edgeHoverMonitor.panelDidChangeVisibility(isVisible: false, autoCloseFrame: nil)
         removeEventMonitors()
@@ -176,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         pendingCloseTask?.cancel()
         pendingCloseTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(500))
+            try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
             self?.closePanel()
         }

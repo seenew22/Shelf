@@ -153,9 +153,12 @@ struct HistoryView: View {
                                 onDelete: { store.remove(item) }
                             )
                             .id(item.id)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
                             Divider().padding(.leading, HistoryRow.iconSide + 22)
                         }
                     }
+                    // 항목을 지우거나 새로 복사했을 때 목록이 툭 끊기지 않고 이어지게 합니다.
+                    .animation(.easeInOut(duration: 0.2), value: store.items)
                 }
                 // 키보드로 옮긴 항목이 화면 밖에 있으면 따라 내려가도록 합니다.
                 .onChange(of: selection.index) {

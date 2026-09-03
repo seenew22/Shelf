@@ -126,16 +126,35 @@ final class EdgeHoverMonitor {
         onEdgeReached?(edge, screen, location)
     }
 
-    /// 마우스가 어느 쪽 가장자리에 있는지 판단합니다. 설정에서 끈 쪽은 무시합니다.
+    /// 마우스가 어느 쪽 가장자리에 있는지 판단합니다.
+    /// 설정에서 끈 쪽과, 다른 화면이 이어져 있는 안쪽 경계는 무시합니다.
     private func edge(at location: NSPoint, on screen: NSScreen) -> HorizontalEdge? {
         let frame = screen.frame
-        if side.includesLeft, location.x <= frame.minX + Self.edgeThickness {
+
+        if side.includesLeft,
+           location.x <= frame.minX + Self.edgeThickness,
+           !hasAdjoiningScreen(beyondX: frame.minX - 1, atHeight: location.y) {
             return .left
         }
-        if side.includesRight, location.x >= frame.maxX - 1 - Self.edgeThickness {
+
+        if side.includesRight,
+           location.x >= frame.maxX - 1 - Self.edgeThickness,
+           !hasAdjoiningScreen(beyondX: frame.maxX + 1, atHeight: location.y) {
             return .right
         }
+
         return nil
+    }
+
+    /// 그 방향에 다른 화면이 이어져 있는지 확인합니다.
+    ///
+    /// 모니터를 나란히 놓으면 두 화면이 맞닿은 경계는 마우스가 그냥 통과하는 통로가 됩니다.
+    /// 거기서 선반이 열리면 화면을 오갈 때마다 방해가 되므로, 바깥쪽으로 더 이상 화면이 없는
+    /// 진짜 끝에서만 반응하게 합니다. 맞닿은 높이만 따지므로, 화면 높이가 서로 달라서
+    /// 일부만 겹치는 배치에서는 겹치지 않는 구간에서 정상적으로 열립니다.
+    private func hasAdjoiningScreen(beyondX x: CGFloat, atHeight y: CGFloat) -> Bool {
+        let probe = NSPoint(x: x, y: y)
+        return NSScreen.screens.contains { $0.frame.contains(probe) }
     }
 
     /// 창이 떠 있는 동안, 마우스가 충분히 멀어졌으면 닫도록 알립니다.
