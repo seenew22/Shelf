@@ -18,8 +18,8 @@ final class EdgeHoverMonitor {
     static let edgeThickness: CGFloat = 2
 
     /// 손잡이를 내밀기까지 가장자리에 머물러야 하는 시간입니다.
-    /// 손잡이는 방해가 되지 않으므로 창을 여는 것보다 문턱을 낮게 두었습니다.
-    static let peekDwellDuration: TimeInterval = 0.16
+    /// 손잡이는 방해가 되지 않으므로 창을 여는 것보다 문턱을 훨씬 낮게 두었습니다.
+    static let peekDwellDuration: TimeInterval = 0.08
 
     /// 손잡이가 나온 뒤, 안쪽으로 이만큼 끌어당기면 선반을 펼칩니다.
     /// 손잡이 폭을 확실히 지나칠 만큼으로 잡아서, 스쳐 지나가다 열리는 일이 없게 합니다.
@@ -28,7 +28,7 @@ final class EdgeHoverMonitor {
     /// 끌어당기지 않고 가장자리에 계속 머물기만 해도, 이 시간이 지나면 선반을 펼칩니다.
     /// 1초 가까이 화면 끝에 마우스를 붙여 두는 일은 실수로 일어나지 않기 때문에,
     /// 끌어당기기가 번거로울 때의 다른 길로 열어 두었습니다.
-    static let holdToOpenDuration: TimeInterval = 0.75
+    static let holdToOpenDuration: TimeInterval = 0.55
 
     /// 화면 위아래 끝에서 이만큼은 감지하지 않습니다.
     ///
@@ -48,6 +48,9 @@ final class EdgeHoverMonitor {
 
     /// 가장자리에 잠깐 머물렀을 때 호출됩니다. 손잡이를 내밀 자리를 함께 넘깁니다.
     var onPeek: ((HorizontalEdge, NSScreen, CGFloat) -> Void)?
+
+    /// 끌어당기는 동안 진행 정도를 알려 줍니다. 0이면 그대로, 1이면 열리기 직전입니다.
+    var onPullProgress: ((CGFloat) -> Void)?
 
     /// 손잡이를 거두어야 할 때 호출됩니다.
     var onPeekCancelled: (() -> Void)?
@@ -200,6 +203,9 @@ final class EdgeHoverMonitor {
         case .left: location.x - screen.frame.minX
         case .right: screen.frame.maxX - location.x
         }
+
+        // 끌어당긴 만큼 손잡이가 늘어나도록 진행 정도를 계속 알려 줍니다.
+        onPullProgress?(inwardDistance / Self.pullThreshold)
 
         guard inwardDistance >= Self.pullThreshold else { return }
         open(edge: edge, screen: screen, at: anchorHeight)

@@ -98,6 +98,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         edgeHoverMonitor.onPeek = { [weak self] edge, screen, height in
             self?.edgePeekPanel.show(at: edge, on: screen, centeredAt: height)
         }
+        edgeHoverMonitor.onPullProgress = { [weak self] progress in
+            self?.edgePeekPanel.updatePull(progress: progress)
+        }
         edgeHoverMonitor.onPeekCancelled = { [weak self] in
             self?.edgePeekPanel.hide()
         }

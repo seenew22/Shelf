@@ -76,7 +76,10 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   the shelf opens. Two stages rather than one because an edge that opens the moment
   you touch it fires constantly while you are just moving around the screen, and
   there is no warning before it does. The handle is the warning, and it costs
-  nothing to ignore. Holding is safe as a second route because nobody parks a cursor
+  nothing to ignore. It also stretches inward in proportion to how far the pull has
+  gone: a handle that sits still and then vanishes never explains what the pull was
+  for, whereas one that follows the cursor makes the gesture legible without a word
+  of instruction. Holding is safe as a second route because nobody parks a cursor
   against a screen edge for three quarters of a second by accident - except in the
   corners, which people do use as a parking spot and which macOS gives to Hot
   Corners, so the top and bottom 48pt of each edge are excluded. A held mouse button
