@@ -21,6 +21,7 @@ struct HistoryView: View {
     @ObservedObject var l10n: LocalizationManager
     @ObservedObject var selection: PanelSelection
     @ObservedObject var preferences: Preferences
+    @ObservedObject var presentation: PanelPresentation
 
     /// 항목을 클릭해서 클립보드에 다시 올린 뒤 화면을 닫을 때 호출됩니다.
     var onCopy: (ClipboardItem) -> Void
@@ -53,6 +54,16 @@ struct HistoryView: View {
                 .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        // 그림자도 카드와 함께 자라야 하므로 창이 아니라 여기서 그립니다.
+        .shadow(color: .black.opacity(0.32), radius: 14, y: 6)
+        // 열린 방향 쪽 모서리를 기준으로 자라나면서 나타납니다.
+        .scaleEffect(
+            presentation.isExpanded ? 1 : PanelPresentation.collapsedScale,
+            anchor: presentation.anchor
+        )
+        .opacity(presentation.isExpanded ? 1 : 0)
+        // 자라날 자리와 그림자가 잘릴 자리를 창 안쪽에 확보해 둡니다.
+        .padding(ShelfPanel.shadowMargin)
         .environment(\.locale, l10n.locale)
         // 창을 열 때마다 기준 시각이 갱신되므로, 그 시점에 지난번 복사 표시를 지웁니다.
         .onChange(of: store.referenceDate) { copiedItemID = nil }
@@ -145,7 +156,7 @@ struct HistoryView: View {
                                 l10n: l10n,
                                 isSelected: selection.index == position,
                                 isCopied: copiedItemID == item.id,
-                                onHover: { selection.select(position) },
+                                onHover: { selection.selectByPointer(position) },
                                 onCopy: {
                                     copiedItemID = item.id
                                     onCopy(item)
@@ -160,11 +171,13 @@ struct HistoryView: View {
                     // 항목을 지우거나 새로 복사했을 때 목록이 툭 끊기지 않고 이어지게 합니다.
                     .animation(.easeInOut(duration: 0.2), value: store.items)
                 }
-                // 키보드로 옮긴 항목이 화면 밖에 있으면 따라 내려가도록 합니다.
-                .onChange(of: selection.index) {
+                // 키보드로 옮겼을 때만 목록이 따라 움직입니다.
+                // 마우스로 가리켰을 때도 움직이면 항목이 커서 밑에서 빠져나가 버립니다.
+                // 또한 화면 가운데로 끌어오지 않고, 보이게 되는 데 필요한 만큼만 움직입니다.
+                .onChange(of: selection.scrollRequestID) {
                     guard store.items.indices.contains(selection.index) else { return }
                     withAnimation(.easeOut(duration: 0.12)) {
-                        scrollProxy.scrollTo(store.items[selection.index].id, anchor: .center)
+                        scrollProxy.scrollTo(store.items[selection.index].id)
                     }
                 }
             }

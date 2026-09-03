@@ -1,5 +1,4 @@
 import AppKit
-import QuartzCore
 import SwiftUI
 
 /// 히스토리 목록을 담는 떠 있는 창입니다.
@@ -9,45 +8,57 @@ import SwiftUI
 /// 항목을 끌어다 놓을 대상 앱의 포커스를 흐트러뜨리지 않습니다.
 /// macOS 14부터는 전역 단축키만으로 앱을 활성 상태로 올릴 수 없게 바뀌었는데,
 /// 이 패널은 활성화를 요구하지 않으므로 그 제약도 함께 피해 갑니다.
+///
+/// 창은 눈에 보이는 카드보다 사방으로 조금 큽니다. 그 여백에 그림자를 그리고,
+/// 카드가 자라나는 움직임을 담을 자리로 씁니다.
 final class ShelfPanel: NSPanel {
 
+    /// 눈에 보이는 카드의 크기입니다.
     static let contentWidth: CGFloat = 340
     static let contentHeight: CGFloat = 460
 
-    /// 창이 어느 쪽에서 밀려 나올지를 나타냅니다.
-    enum SlideOrigin {
-        /// 화면 왼쪽 가장자리에서 밀려 나옵니다.
-        case leadingEdge
-        /// 화면 오른쪽 가장자리에서 밀려 나옵니다.
-        case trailingEdge
-        /// 메뉴 바 아이콘 아래로 내려옵니다.
-        case above
-        /// 제자리에서 살짝 떠오릅니다. 마우스 커서 옆에 열 때 사용합니다.
-        case inPlace
+    /// 그림자와 확대 여유를 담기 위해 창을 카드보다 이만큼 크게 잡습니다.
+    static let shadowMargin: CGFloat = 20
 
-        /// 나타나기 직전에 창이 놓일 위치의 어긋난 정도입니다.
-        var offset: CGSize {
+    /// 창이 어느 지점에서 자라나는지를 나타냅니다.
+    enum SlideOrigin {
+        /// 화면 왼쪽 가장자리에서 튀어나옵니다.
+        case leadingEdge
+        /// 화면 오른쪽 가장자리에서 튀어나옵니다.
+        case trailingEdge
+        /// 메뉴 바 아이콘 아래로 펼쳐집니다.
+        case above
+        /// 마우스 커서가 있는 왼쪽 위 모서리에서 펼쳐집니다.
+        case cursor
+
+        /// 자라나기 시작하는 기준점입니다.
+        var anchor: UnitPoint {
             switch self {
-            case .leadingEdge: CGSize(width: -32, height: 0)
-            case .trailingEdge: CGSize(width: 32, height: 0)
-            case .above: CGSize(width: 0, height: 18)
-            case .inPlace: CGSize(width: 0, height: -10)
+            case .leadingEdge: .leading
+            case .trailingEdge: .trailing
+            case .above: .top
+            case .cursor: .topLeading
             }
         }
     }
 
-    private static let presentDuration: TimeInterval = 0.20
-    private static let dismissDuration: TimeInterval = 0.13
-
-    private var slideOrigin: SlideOrigin = .inPlace
-    private var isDismissing = false
-
     /// 테두리가 없는 창은 기본적으로 키 입력을 받지 못하므로 직접 허용해 줍니다.
     override var canBecomeKey: Bool { true }
 
+    /// 실제로 눈에 보이는 카드가 화면에서 차지하는 자리입니다.
+    /// 바깥 여백은 투명하므로, 바깥 클릭 판정 같은 계산은 이 값을 기준으로 해야 합니다.
+    var cardFrame: NSRect {
+        frame.insetBy(dx: Self.shadowMargin, dy: Self.shadowMargin)
+    }
+
     init(rootView: some View) {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: Self.contentWidth, height: Self.contentHeight),
+            contentRect: NSRect(
+                x: 0,
+                y: 0,
+                width: Self.contentWidth + Self.shadowMargin * 2,
+                height: Self.contentHeight + Self.shadowMargin * 2
+            ),
             styleMask: [.nonactivatingPanel, .borderless, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -61,81 +72,23 @@ final class ShelfPanel: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = true
+        // 그림자는 내용물 쪽에서 그립니다. 창 그림자는 카드가 자라는 동안 따라오지 못합니다.
+        hasShadow = false
         isMovable = false
-        // 나타나고 사라지는 움직임을 직접 그리므로 시스템 기본 효과는 끕니다.
+        // 나타나고 사라지는 움직임을 내용물 쪽에서 그리므로 시스템 기본 효과는 끕니다.
         animationBehavior = .none
 
         contentView = NSHostingView(rootView: rootView)
     }
 
-    // MARK: - 나타나고 사라지기
-
-    /// 지정한 방향에서 밀려 나오면서 창을 띄웁니다.
-    ///
-    /// 위치는 미리 잡아 둔 상태여야 합니다. 그 위치를 목적지로 삼고, 조금 어긋난 자리에서
-    /// 투명한 채로 시작해서 제자리로 미끄러져 들어옵니다.
-    func present(slidingFrom origin: SlideOrigin) {
-        slideOrigin = origin
-        isDismissing = false
-
-        let destination = frame
-        let start = NSRect(
-            x: destination.origin.x + origin.offset.width,
-            y: destination.origin.y + origin.offset.height,
-            width: destination.width,
-            height: destination.height
-        )
-
-        setFrame(start, display: false)
-        alphaValue = 0
-        orderFrontRegardless()
-        makeKey()
-
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = Self.presentDuration
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            context.allowsImplicitAnimation = true
-            animator().setFrame(destination, display: true)
-            animator().alphaValue = 1
-        }
-    }
-
-    /// 들어왔던 방향으로 되돌아가면서 창을 감춥니다.
-    func dismiss() {
-        guard isVisible, !isDismissing else {
-            orderOut(nil)
-            return
-        }
-        isDismissing = true
-
-        let current = frame
-        let departure = NSRect(
-            x: current.origin.x + slideOrigin.offset.width,
-            y: current.origin.y + slideOrigin.offset.height,
-            width: current.width,
-            height: current.height
-        )
-
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = Self.dismissDuration
-            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
-            context.allowsImplicitAnimation = true
-            animator().setFrame(departure, display: true)
-            animator().alphaValue = 0
-        } completionHandler: { [weak self] in
-            MainActor.assumeIsolated {
-                guard let self, self.isDismissing else { return }
-                self.isDismissing = false
-                self.orderOut(nil)
-                // 다음에 띄울 때를 위해 원래 상태로 되돌려 둡니다.
-                self.alphaValue = 1
-                self.setFrame(current, display: false)
-            }
-        }
-    }
-
     // MARK: - 위치 잡기
+    //
+    // 아래 함수들은 모두 "카드가 놓일 자리"를 계산한 뒤 창을 그만큼 바깥으로 물려서 놓습니다.
+
+    /// 카드의 왼쪽 아래 모서리가 이 지점에 오도록 창을 옮깁니다.
+    private func setCardOrigin(_ origin: NSPoint) {
+        setFrameOrigin(NSPoint(x: origin.x - Self.shadowMargin, y: origin.y - Self.shadowMargin))
+    }
 
     /// 상태 항목 아이콘 바로 아래에 창을 배치합니다.
     /// 화면 가장자리를 넘어가지 않도록 위치를 보정합니다.
@@ -145,19 +98,18 @@ final class ShelfPanel: NSPanel {
         let anchor = buttonWindow.convertToScreen(
             statusButton.convert(statusButton.bounds, to: nil)
         )
-        let size = frame.size
         var origin = NSPoint(
-            x: anchor.midX - size.width / 2,
-            y: anchor.minY - size.height - 6
+            x: anchor.midX - Self.contentWidth / 2,
+            y: anchor.minY - Self.contentHeight - 6
         )
 
         if let screen = buttonWindow.screen ?? NSScreen.main {
             let visible = screen.visibleFrame
-            origin.x = min(max(origin.x, visible.minX + 8), visible.maxX - size.width - 8)
+            origin.x = min(max(origin.x, visible.minX + 8), visible.maxX - Self.contentWidth - 8)
             origin.y = max(origin.y, visible.minY + 8)
         }
 
-        setFrameOrigin(origin)
+        setCardOrigin(origin)
     }
 
     /// 마우스 커서 바로 옆에 창을 배치합니다.
@@ -165,35 +117,36 @@ final class ShelfPanel: NSPanel {
     /// 단축키로 열었을 때 시선과 손이 이미 가 있는 자리에 창이 나타나므로,
     /// 화면 위쪽 메뉴 바까지 올라갔다 내려올 필요가 없습니다.
     func position(near cursorLocation: NSPoint) {
-        let size = frame.size
-        // 커서 왼쪽 위 모서리에서 살짝 벗어난 지점을 창의 왼쪽 위로 삼습니다.
-        var origin = NSPoint(x: cursorLocation.x - 12, y: cursorLocation.y + 12 - size.height)
+        // 커서 왼쪽 위 모서리에서 살짝 벗어난 지점을 카드의 왼쪽 위로 삼습니다.
+        var origin = NSPoint(
+            x: cursorLocation.x - 12,
+            y: cursorLocation.y + 12 - Self.contentHeight
+        )
 
         let screen = NSScreen.screens.first { $0.frame.contains(cursorLocation) } ?? NSScreen.main
         if let visible = screen?.visibleFrame {
-            origin.x = min(max(origin.x, visible.minX + 8), visible.maxX - size.width - 8)
-            origin.y = min(max(origin.y, visible.minY + 8), visible.maxY - size.height - 8)
+            origin.x = min(max(origin.x, visible.minX + 8), visible.maxX - Self.contentWidth - 8)
+            origin.y = min(max(origin.y, visible.minY + 8), visible.maxY - Self.contentHeight - 8)
         }
 
-        setFrameOrigin(origin)
+        setCardOrigin(origin)
     }
 
     /// 화면의 좌우 가장자리에 붙여서 창을 배치합니다.
     ///
     /// 세로 위치는 마우스가 있던 높이를 기준으로 맞춰서, 시선이 가 있는 자리에 나타나게 합니다.
     func position(atEdge edge: EdgeHoverMonitor.HorizontalEdge, on screen: NSScreen, cursorHeight: CGFloat) {
-        let size = frame.size
         let visible = screen.visibleFrame
         let inset: CGFloat = 8
 
         let x = switch edge {
         case .left: visible.minX + inset
-        case .right: visible.maxX - size.width - inset
+        case .right: visible.maxX - Self.contentWidth - inset
         }
 
-        var y = cursorHeight - size.height / 2
-        y = min(max(y, visible.minY + inset), visible.maxY - size.height - inset)
+        var y = cursorHeight - Self.contentHeight / 2
+        y = min(max(y, visible.minY + inset), visible.maxY - Self.contentHeight - inset)
 
-        setFrameOrigin(NSPoint(x: x, y: y))
+        setCardOrigin(NSPoint(x: x, y: y))
     }
 }

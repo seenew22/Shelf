@@ -82,13 +82,21 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   between screens, so opening there is pure obstruction. The probe is a point one
   point beyond the edge at the cursor's own height, so displays of different heights
   still trigger along the stretch where nothing adjoins.
-- **Panel animation** — `ShelfPanel.present(slidingFrom:)` / `dismiss()` drive the
-  window frame and alpha through `NSAnimationContext`, so the panel slides in from
-  whichever direction it belongs to and retreats the same way. The system's own
-  window animation is switched off (`animationBehavior = .none`) to avoid fighting
-  it. Because the window lingers on screen during the closing animation,
-  `isVisible` no longer answers "is the panel open" - `AppDelegate.isPanelPresented`
-  does.
+- **Panel animation** — `PanelPresentation` drives a SwiftUI `scaleEffect` anchored
+  at the side the panel was summoned from, with a spring that slightly overshoots, so
+  the card grows out of that edge rather than sliding as a rigid block. The window
+  frame never animates: the window is deliberately `shadowMargin` larger than the
+  visible card on every side, giving the growth and the (SwiftUI-drawn) shadow room
+  to live inside a stationary window. `hasShadow` is off for the same reason - a
+  window shadow is computed from the window, not the scaled content, so it would sit
+  still while the card moved. `animationBehavior = .none` keeps the system's own
+  window animation out of the way.
+
+  Two consequences worth remembering. The window outlives the closing animation, so
+  `isVisible` does not answer "is the panel open" - `AppDelegate.isPanelPresented`
+  does. And the window is bigger than what the user sees, so anything geometric -
+  the outside-click test, the edge-hover auto-close - must use `panel.cardFrame`,
+  never `panel.frame`.
 - **`ClipboardMonitor`** — a `Timer` (~0.4s) that polls
   `NSPasteboard.general.changeCount`. macOS has **no** "clipboard changed"
   notification, so polling changeCount is the standard, correct approach. When the

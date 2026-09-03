@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var localization: LocalizationManager?
     private let selection = PanelSelection()
     private let preferences = Preferences()
+    private let presentation = PanelPresentation()
     private let edgeHoverMonitor = EdgeHoverMonitor()
     private var toggleHotkey: GlobalHotkey?
 
@@ -24,6 +25,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 복사 표시를 잠깐 보여 준 뒤 창을 닫기 위해 예약해 둔 작업입니다.
     private var pendingCloseTask: Task<Void, Never>?
+
+    /// 사라지는 움직임이 끝난 뒤 창을 실제로 감추기 위해 예약해 둔 작업입니다.
+    private var hideTask: Task<Void, Never>?
 
     /// 창 바깥을 클릭했을 때 창을 닫기 위한 감시자입니다.
     private var outsideClickMonitor: Any?
@@ -73,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 l10n: localization,
                 selection: selection,
                 preferences: preferences,
+                presentation: presentation,
                 onCopy: { [weak self] item in self?.copyAndClose(item) },
                 onQuit: { NSApp.terminate(nil) }
             )
@@ -143,22 +148,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             slideOrigin = .above
         case .mouseCursor:
             panel.position(near: NSEvent.mouseLocation)
-            slideOrigin = .inPlace
+            slideOrigin = .cursor
         case .screenEdge(let edge, let screen, let cursorHeight):
             panel.position(atEdge: edge, on: screen, cursorHeight: cursorHeight)
             slideOrigin = edge == .left ? .leadingEdge : .trailingEdge
         }
 
         // 앱을 활성 상태로 만들지 않고 창만 앞으로 내보냅니다.
-        panel.present(slidingFrom: slideOrigin)
+        hideTask?.cancel()
+        hideTask = nil
+        panel.orderFrontRegardless()
+        panel.makeKey()
         isPanelPresented = true
+
+        // 접힌 모습이 한 번 그려진 다음에 펼쳐져야 움직임이 보입니다.
+        // 곧바로 펼치면 이미 펼쳐진 상태로 처음 그려져서 아무 움직임도 나타나지 않습니다.
+        let growthAnchor = slideOrigin.anchor
+        Task { @MainActor [weak self] in
+            self?.presentation.expand(from: growthAnchor)
+        }
         statusItem?.button?.highlight(true)
 
         // 가장자리로 연 창만 마우스가 멀어졌을 때 스스로 닫히게 합니다.
         let opensFromEdge = if case .screenEdge = anchor { true } else { false }
         edgeHoverMonitor.panelDidChangeVisibility(
             isVisible: true,
-            autoCloseFrame: opensFromEdge ? panel.frame : nil
+            autoCloseFrame: opensFromEdge ? panel.cardFrame : nil
         )
 
         startEventMonitors()
@@ -169,7 +184,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         isPanelPresented = false
         pendingCloseTask?.cancel()
         pendingCloseTask = nil
-        panel?.dismiss()
+
+        // 먼저 접히는 움직임을 시작하고, 다 접힌 다음에 창을 실제로 감춥니다.
+        presentation.collapse()
+        hideTask?.cancel()
+        hideTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(PanelPresentation.collapseDuration + 0.02))
+            guard !Task.isCancelled else { return }
+            self?.panel?.orderOut(nil)
+        }
+
         statusItem?.button?.highlight(false)
         edgeHoverMonitor.panelDidChangeVisibility(isVisible: false, autoCloseFrame: nil)
         removeEventMonitors()
@@ -205,7 +229,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 matching: [.leftMouseDown, .rightMouseDown]
             ) { [weak self] _ in
                 MainActor.assumeIsolated {
-                    guard let self, !self.isPointOverOwnWindow(NSEvent.mouseLocation) else { return }
+                    guard let self, !self.shouldKeepPanelOpen(forClickAt: NSEvent.mouseLocation) else { return }
                     self.closePanel()
                 }
             }
@@ -221,24 +245,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// 클릭 지점이 이 앱이 소유한 창 위인지 확인합니다.
+    /// 이 클릭 때문에 창을 닫지 말아야 하는지 판단합니다.
+    private func shouldKeepPanelOpen(forClickAt location: NSPoint) -> Bool {
+        // 눈에 보이는 카드 위를 눌렀다면 그대로 둡니다. 카드 바깥의 여백도 창의 일부이긴 하지만
+        // 투명해서 보이지 않으므로, 그쪽을 누른 것은 바깥을 누른 것으로 봅니다.
+        if let panel, panel.cardFrame.contains(location) {
+            return true
+        }
+        return isPointOverOwnMenu(location)
+    }
+
+    /// 클릭 지점이 이 앱이 띄운 메뉴 위인지 확인합니다.
     ///
-    /// 언어 선택 메뉴처럼 메뉴가 열려 있는 동안의 클릭은 메뉴가 자체적으로 처리하기 때문에,
+    /// 설정 메뉴가 열려 있는 동안의 클릭은 메뉴가 자체적으로 처리하기 때문에,
     /// 전역 감시자에게는 앱 바깥에서 일어난 일처럼 전달됩니다. 메뉴는 별개의 창이라
     /// 일반적인 방법으로는 구분되지 않으므로, 화면에 떠 있는 창 중에서 이 프로세스가
     /// 소유한 것이 있는지 직접 확인해서 걸러 냅니다.
-    private func isPointOverOwnWindow(_ location: NSPoint) -> Bool {
+    private func isPointOverOwnMenu(_ location: NSPoint) -> Bool {
         guard let mainScreen = NSScreen.screens.first else { return false }
 
         // 마우스 위치는 주 화면 왼쪽 아래가 원점이고 위로 갈수록 y가 커지는 반면,
         // 창 목록은 주 화면 왼쪽 위가 원점이고 아래로 갈수록 y가 커지므로 변환이 필요합니다.
         let point = CGPoint(x: location.x, y: mainScreen.frame.height - location.y)
         let ownProcessIdentifier = ProcessInfo.processInfo.processIdentifier
+        let panelWindowNumber = panel?.windowNumber
         let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
 
         return windows.contains { window in
             guard
                 window[kCGWindowOwnerPID as String] as? pid_t == ownProcessIdentifier,
+                window[kCGWindowNumber as String] as? Int != panelWindowNumber,
                 let boundsDictionary = window[kCGWindowBounds as String] as? [String: CGFloat],
                 let bounds = CGRect(dictionaryRepresentation: boundsDictionary as CFDictionary)
             else {
@@ -259,11 +295,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return true
 
         case 126: // 위쪽 화살표
-            selection.move(by: -1, itemCount: itemCount)
+            selection.moveByKeyboard(by: -1, itemCount: itemCount)
             return true
 
         case 125: // 아래쪽 화살표
-            selection.move(by: 1, itemCount: itemCount)
+            selection.moveByKeyboard(by: 1, itemCount: itemCount)
             return true
 
         case 36, 76: // Return, 숫자판 Enter
