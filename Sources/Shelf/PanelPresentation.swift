@@ -9,7 +9,8 @@ import SwiftUI
 final class PanelPresentation: ObservableObject {
 
     /// 접힌 상태에서의 크기 비율입니다. 이 크기에서 시작해 제자리 크기로 자랍니다.
-    static let collapsedScale: CGFloat = 0.82
+    /// 차이가 클수록 튀어나오는 느낌이 뚜렷해집니다.
+    static let collapsedScale: CGFloat = 0.70
 
     /// 사라지는 데 걸리는 시간입니다. 창을 실제로 감추는 시점을 맞추는 데도 씁니다.
     static let collapseDuration: TimeInterval = 0.14
@@ -22,8 +23,9 @@ final class PanelPresentation: ObservableObject {
 
     func expand(from anchor: UnitPoint) {
         self.anchor = anchor
-        // 살짝 지나쳤다가 제자리로 돌아오는 탄성을 주어 튀어나오는 느낌을 만듭니다.
-        withAnimation(.spring(response: 0.30, dampingFraction: 0.68)) {
+        // 제자리를 한 번 지나쳤다가 되돌아오는 탄성을 주어 튀어나오는 느낌을 만듭니다.
+        // bounce 값이 클수록 더 통통 튑니다.
+        withAnimation(.spring(duration: 0.40, bounce: 0.42)) {
             isExpanded = true
         }
     }

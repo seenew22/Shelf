@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let preferences = Preferences()
     private let presentation = PanelPresentation()
     private let edgeHoverMonitor = EdgeHoverMonitor()
+    private let edgePeekPanel = EdgePeekPanel()
     private var toggleHotkey: GlobalHotkey?
 
     /// 창이 지금 열려 있는지 여부입니다.
@@ -94,8 +95,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setUpEdgeHover() {
-        edgeHoverMonitor.onEdgeReached = { [weak self] edge, screen, location in
-            self?.openPanel(anchoredTo: .screenEdge(edge, screen, cursorHeight: location.y))
+        edgeHoverMonitor.onPeek = { [weak self] edge, screen, height in
+            self?.edgePeekPanel.show(at: edge, on: screen, centeredAt: height)
+        }
+        edgeHoverMonitor.onPeekCancelled = { [weak self] in
+            self?.edgePeekPanel.hide()
+        }
+        edgeHoverMonitor.onPull = { [weak self] edge, screen, height in
+            self?.edgePeekPanel.hide()
+            self?.openPanel(anchoredTo: .screenEdge(edge, screen, cursorHeight: height))
         }
         edgeHoverMonitor.onPointerLeft = { [weak self] in
             self?.closePanel()
@@ -157,6 +165,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 앱을 활성 상태로 만들지 않고 창만 앞으로 내보냅니다.
         hideTask?.cancel()
         hideTask = nil
+        edgePeekPanel.hide()
         panel.orderFrontRegardless()
         panel.makeKey()
         isPanelPresented = true

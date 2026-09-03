@@ -70,8 +70,12 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   The panel hosts the SwiftUI list through `NSHostingView`. It is positioned three
   ways depending on how it was opened: under the status item, beside the mouse
   cursor (the hotkey), or flush against a screen edge (edge hover).
-- **`EdgeHoverMonitor`** — polls `NSEvent.mouseLocation` every 0.06s and opens the
-  panel once the cursor has rested within 2pt of a chosen screen edge for 0.25s.
+- **`EdgeHoverMonitor`** — polls `NSEvent.mouseLocation` and runs a small state
+  machine: rest within 2pt of a chosen screen edge and a small handle
+  (`EdgePeekPanel`) slides out; pull inward from there and the shelf opens. Two
+  stages rather than one because an edge that opens the moment you touch it fires
+  constantly while you are just moving around the screen, and there is no warning
+  before it does. The handle is the warning, and it costs nothing to ignore.
   Polling beats a global mouse monitor here: the monitor wakes on every mouse move
   system-wide, while the question being asked is "has it *stayed* here", and neither
   needs Accessibility permission. Off by default (`Preferences`), since a shelf that
