@@ -172,9 +172,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 접힌 모습이 한 번 그려진 다음에 펼쳐져야 움직임이 보입니다.
         // 곧바로 펼치면 이미 펼쳐진 상태로 처음 그려져서 아무 움직임도 나타나지 않습니다.
-        let growthAnchor = slideOrigin.anchor
         Task { @MainActor [weak self] in
-            self?.presentation.expand(from: growthAnchor)
+            self?.presentation.expand(from: slideOrigin)
         }
         statusItem?.button?.highlight(true)
 

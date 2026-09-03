@@ -58,10 +58,11 @@ struct HistoryView: View {
         .shadow(color: .black.opacity(0.32), radius: 14, y: 6)
         // 열린 방향 쪽 모서리를 기준으로 자라나면서 나타납니다.
         .scaleEffect(
-            presentation.isExpanded ? 1 : PanelPresentation.collapsedScale,
+            x: presentation.scaleX,
+            y: presentation.scaleY,
             anchor: presentation.anchor
         )
-        .opacity(presentation.isExpanded ? 1 : 0)
+        .opacity(presentation.opacity)
         // 자라날 자리와 그림자가 잘릴 자리를 창 안쪽에 확보해 둡니다.
         .padding(ShelfPanel.shadowMargin)
         .environment(\.locale, l10n.locale)

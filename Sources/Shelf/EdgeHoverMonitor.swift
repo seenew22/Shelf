@@ -22,7 +22,8 @@ final class EdgeHoverMonitor {
     static let peekDwellDuration: TimeInterval = 0.16
 
     /// 손잡이가 나온 뒤, 안쪽으로 이만큼 끌어당기면 선반을 펼칩니다.
-    static let pullThreshold: CGFloat = 26
+    /// 손잡이 폭을 확실히 지나칠 만큼으로 잡아서, 스쳐 지나가다 열리는 일이 없게 합니다.
+    static let pullThreshold: CGFloat = 34
 
     /// 끌어당기는 동안 허용하는 세로 방향 흔들림입니다.
     /// 이보다 크게 벗어나면 끌어당길 뜻이 없다고 보고 손잡이를 거둡니다.
