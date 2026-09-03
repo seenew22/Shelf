@@ -48,15 +48,18 @@ struct HistoryView: View {
         }
         .frame(width: ShelfPanel.contentWidth, height: ShelfPanel.contentHeight)
         // 테두리가 없는 패널이므로 배경과 둥근 모서리를 여기서 직접 그립니다.
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        // 모서리 둥글기는 펼쳐지는 동안 함께 변하므로 고정값이 아닙니다.
+        .background(.regularMaterial)
+        .clipShape(cardShape)
         .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+            cardShape.strokeBorder(Color.primary.opacity(0.18), lineWidth: 1)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
         // 그림자도 카드와 함께 자라야 하므로 창이 아니라 여기서 그립니다.
-        .shadow(color: .black.opacity(0.32), radius: 14, y: 6)
-        // 열린 방향 쪽 모서리를 기준으로 자라나면서 나타납니다.
+        // 넓게 번지는 그림자만으로는 윤곽이 흐려서, 가까이 붙는 그림자를 한 겹 더 둡니다.
+        .shadow(color: .black.opacity(0.45), radius: 22, y: 10)
+        .shadow(color: .black.opacity(0.28), radius: 4, y: 1)
+        // 열린 방향 쪽 모서리를 기준으로 부풀어 오르면서 나타납니다.
+        .blur(radius: presentation.blurRadius)
         .scaleEffect(
             x: presentation.scaleX,
             y: presentation.scaleY,
@@ -77,6 +80,11 @@ struct HistoryView: View {
         let revision = information?["CFBundleVersion"] as? String ?? ""
         return revision.isEmpty ? version : "\(version) (\(revision))"
     }()
+
+    /// 카드의 외곽 모양입니다. 펼쳐지는 동안 둥글기가 변합니다.
+    private var cardShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: presentation.cornerRadius, style: .continuous)
+    }
 
     // MARK: - 구성 요소
 
