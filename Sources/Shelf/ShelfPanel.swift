@@ -79,4 +79,23 @@ final class ShelfPanel: NSPanel {
 
         setFrameOrigin(origin)
     }
+
+    /// 화면의 좌우 가장자리에 붙여서 창을 배치합니다.
+    ///
+    /// 세로 위치는 마우스가 있던 높이를 기준으로 맞춰서, 시선이 가 있는 자리에 나타나게 합니다.
+    func position(atEdge edge: EdgeHoverMonitor.HorizontalEdge, on screen: NSScreen, cursorHeight: CGFloat) {
+        let size = frame.size
+        let visible = screen.visibleFrame
+        let inset: CGFloat = 8
+
+        let x = switch edge {
+        case .left: visible.minX + inset
+        case .right: visible.maxX - size.width - inset
+        }
+
+        var y = cursorHeight - size.height / 2
+        y = min(max(y, visible.minY + inset), visible.maxY - size.height - inset)
+
+        setFrameOrigin(NSPoint(x: x, y: y))
+    }
 }

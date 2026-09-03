@@ -12,3 +12,9 @@
 "footer.keyHints" = "↑↓ 이동 · ⏎ 복사 · esc 닫기";
 "menu.language" = "언어";
 "language.system" = "시스템 설정 따름";
+"menu.edgeHover" = "화면 가장자리로 열기";
+"menu.settings" = "설정";
+"edge.off" = "사용 안 함";
+"edge.left" = "왼쪽";
+"edge.right" = "오른쪽";
+"edge.both" = "양쪽";

@@ -14,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var clipboardMonitor: ClipboardMonitor?
     private var localization: LocalizationManager?
     private let selection = PanelSelection()
+    private let preferences = Preferences()
+    private let edgeHoverMonitor = EdgeHoverMonitor()
     private var toggleHotkey: GlobalHotkey?
 
     /// 복사 표시를 잠깐 보여 준 뒤 창을 닫기 위해 예약해 둔 작업입니다.
@@ -37,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setUpStatusItem()
         setUpPanel(store: store, localization: localization)
         setUpGlobalShortcut()
+        setUpEdgeHover()
 
         clipboardMonitor.start()
     }
@@ -65,6 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 store: store,
                 l10n: localization,
                 selection: selection,
+                preferences: preferences,
                 onCopy: { [weak self] item in self?.copyAndClose(item) },
                 onQuit: { NSApp.terminate(nil) }
             )
@@ -80,6 +84,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func setUpEdgeHover() {
+        edgeHoverMonitor.onEdgeReached = { [weak self] edge, screen, location in
+            self?.openPanel(anchoredTo: .screenEdge(edge, screen, cursorHeight: location.y))
+        }
+        edgeHoverMonitor.onPointerLeft = { [weak self] in
+            self?.closePanel()
+        }
+        preferences.onEdgeHoverSideChanged = { [weak self] side in
+            self?.edgeHoverMonitor.update(side: side)
+        }
+        edgeHoverMonitor.update(side: preferences.edgeHoverSide)
+    }
+
     // MARK: - 창 열고 닫기
 
     /// 창을 어디에 붙여서 띄울지를 나타냅니다.
@@ -88,6 +105,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case statusItem
         /// 마우스 커서 옆에 띄웁니다.
         case mouseCursor
+        /// 화면의 좌우 가장자리에 붙여서 띄웁니다.
+        case screenEdge(EdgeHoverMonitor.HorizontalEdge, NSScreen, cursorHeight: CGFloat)
     }
 
     @objc private func statusItemClicked() {
@@ -118,11 +137,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.position(below: button)
         case .mouseCursor:
             panel.position(near: NSEvent.mouseLocation)
+        case .screenEdge(let edge, let screen, let cursorHeight):
+            panel.position(atEdge: edge, on: screen, cursorHeight: cursorHeight)
         }
         // 앱을 활성 상태로 만들지 않고 창만 앞으로 내보냅니다.
         panel.orderFrontRegardless()
         panel.makeKey()
         statusItem?.button?.highlight(true)
+
+        // 가장자리로 연 창만 마우스가 멀어졌을 때 스스로 닫히게 합니다.
+        let opensFromEdge = if case .screenEdge = anchor { true } else { false }
+        edgeHoverMonitor.panelDidChangeVisibility(
+            isVisible: true,
+            autoCloseFrame: opensFromEdge ? panel.frame : nil
+        )
+
         startEventMonitors()
     }
 
@@ -131,6 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pendingCloseTask = nil
         panel?.orderOut(nil)
         statusItem?.button?.highlight(false)
+        edgeHoverMonitor.panelDidChangeVisibility(isVisible: false, autoCloseFrame: nil)
         removeEventMonitors()
     }
 

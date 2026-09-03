@@ -12,3 +12,9 @@
 "footer.keyHints" = "↑↓ move · ⏎ copy · esc close";
 "menu.language" = "Language";
 "language.system" = "Match system";
+"menu.edgeHover" = "Open from screen edge";
+"menu.settings" = "Settings";
+"edge.off" = "Off";
+"edge.left" = "Left";
+"edge.right" = "Right";
+"edge.both" = "Both";

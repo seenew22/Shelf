@@ -47,6 +47,12 @@ enum StringKey: String {
     case hintFile = "hint.file"
     case footerKeyHints = "footer.keyHints"
     case menuLanguage = "menu.language"
+    case menuEdgeHover = "menu.edgeHover"
+    case menuSettings = "menu.settings"
+    case edgeOff = "edge.off"
+    case edgeLeft = "edge.left"
+    case edgeRight = "edge.right"
+    case edgeBoth = "edge.both"
     case languageSystem = "language.system"
 }
 

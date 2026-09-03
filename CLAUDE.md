@@ -67,7 +67,17 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   (`ShelfApp.swift`) with `.accessory` activation policy.
 - **`NSStatusItem` + a non-activating `NSPanel`** (`ShelfPanel.swift`) — *not*
   `MenuBarExtra`, and *not* `NSPopover`. See "Deviations" below for why.
-  The panel hosts the SwiftUI list through `NSHostingView`.
+  The panel hosts the SwiftUI list through `NSHostingView`. It is positioned three
+  ways depending on how it was opened: under the status item, beside the mouse
+  cursor (the hotkey), or flush against a screen edge (edge hover).
+- **`EdgeHoverMonitor`** — polls `NSEvent.mouseLocation` every 0.06s and opens the
+  panel once the cursor has rested within 2pt of a chosen screen edge for 0.25s.
+  Polling beats a global mouse monitor here: the monitor wakes on every mouse move
+  system-wide, while the question being asked is "has it *stayed* here", and neither
+  needs Accessibility permission. Off by default (`Preferences`), since a shelf that
+  appears when you brush the screen edge is worse than one you have to ask for.
+  Only an edge-opened panel closes itself when the pointer wanders off, and never
+  while a mouse button is down, so dragging an item out still works.
 - **`ClipboardMonitor`** — a `Timer` (~0.4s) that polls
   `NSPasteboard.general.changeCount`. macOS has **no** "clipboard changed"
   notification, so polling changeCount is the standard, correct approach. When the

@@ -20,6 +20,7 @@ struct HistoryView: View {
     @ObservedObject var store: HistoryStore
     @ObservedObject var l10n: LocalizationManager
     @ObservedObject var selection: PanelSelection
+    @ObservedObject var preferences: Preferences
 
     /// 항목을 클릭해서 클립보드에 다시 올린 뒤 화면을 닫을 때 호출됩니다.
     var onCopy: (ClipboardItem) -> Void
@@ -76,14 +77,21 @@ struct HistoryView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
-            languageMenu
+            settingsMenu
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
     }
 
-    private var languageMenu: some View {
+    private var settingsMenu: some View {
         Menu {
+            Picker(l10n[.menuEdgeHover], selection: $preferences.edgeHoverSide) {
+                ForEach(EdgeHoverSide.allCases) { side in
+                    Text(l10n[side.stringKey]).tag(side)
+                }
+            }
+            .pickerStyle(.inline)
+
             Picker(l10n[.menuLanguage], selection: $l10n.language) {
                 ForEach(AppLanguage.allCases) { language in
                     Text(language.menuTitle ?? l10n[.languageSystem]).tag(language)
@@ -95,13 +103,13 @@ struct HistoryView: View {
             // 어느 시점의 소스로 만든 앱인지 확인할 수 있게 버전과 커밋 해시를 적어 둡니다.
             Text(verbatim: "Shelf \(Self.appVersion)")
         } label: {
-            Image(systemName: "globe")
+            Image(systemName: "gearshape")
                 .foregroundStyle(.secondary)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help(l10n[.menuLanguage])
+        .help(l10n[.menuSettings])
     }
 
     private var emptyState: some View {
