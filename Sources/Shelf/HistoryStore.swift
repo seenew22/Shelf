@@ -142,9 +142,15 @@ final class HistoryStore: ObservableObject {
 
         case .image:
             if let url = item.payloadURL(blobsDirectory: blobsDirectory),
-               let image = NSImage(contentsOf: url) {
-                // 이미지 자체와 파일 위치를 함께 올려두면 붙여넣는 앱이 편한 쪽을 고를 수 있습니다.
-                pasteboard.writeObjects([image, url as NSURL])
+               let data = try? Data(contentsOf: url) {
+                // 이미지 자체와 파일 위치를 **하나의 항목 안에** 두 가지 표현으로 담습니다.
+                // 둘을 따로 쓰면 클립보드에 항목이 두 개 올라가기 때문에, 여러 항목을 받는
+                // 앱에서는 같은 이미지가 두 번 붙습니다. 먼저 적은 표현이 우선 선택되므로,
+                // 원래 복사했을 때와 같이 이미지로 붙도록 이미지 데이터를 앞에 둡니다.
+                let entry = NSPasteboardItem()
+                entry.setData(data, forType: .png)
+                entry.setString(url.absoluteString, forType: .fileURL)
+                pasteboard.writeObjects([entry])
             }
 
         case .file:
