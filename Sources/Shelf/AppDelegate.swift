@@ -106,7 +106,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.openPanel(anchoredTo: .screenEdge(edge, screen, cursorHeight: height))
         }
         edgeHoverMonitor.onPointerLeft = { [weak self] in
-            self?.closePanel()
+            guard let self else { return }
+            // 설정 메뉴를 펼쳐 둔 채로 마우스를 옮기는 일은 흔합니다. 이때 창만 닫아 버리면
+            // 메뉴가 홀로 남아 떠다니게 되므로, 메뉴가 닫힐 때까지 기다립니다.
+            guard !self.hasOpenMenu() else { return }
+            self.closePanel()
         }
         preferences.onEdgeHoverSideChanged = { [weak self] side in
             self?.edgeHoverMonitor.update(side: side)
@@ -221,7 +225,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         pendingCloseTask?.cancel()
         pendingCloseTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(400))
+            try? await Task.sleep(for: .milliseconds(320))
             guard !Task.isCancelled else { return }
             self?.closePanel()
         }
@@ -265,6 +269,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return isPointOverOwnMenu(location)
     }
 
+    /// 이 앱이 띄운 메뉴가 지금 화면에 떠 있는지 확인합니다.
+    ///
+    /// 메뉴는 SwiftUI 가 알아서 만들고 없애기 때문에 우리가 직접 붙들고 있는 대상이 아닙니다.
+    /// 그래서 화면에 떠 있는 창 중에 이 프로세스가 가진 것이 패널과 손잡이 말고 또 있는지를
+    /// 보고 판단합니다.
+    private func hasOpenMenu() -> Bool {
+        let ownWindowNumbers = Set([panel?.windowNumber, edgePeekPanel.windowNumber].compactMap { $0 })
+        return ownWindows().contains { number, _ in !ownWindowNumbers.contains(number) }
+    }
+
+    /// 화면에 떠 있는 창 중에서 이 프로세스가 가진 것들의 번호와 위치입니다.
+    private func ownWindows() -> [(Int, CGRect)] {
+        let ownProcessIdentifier = ProcessInfo.processInfo.processIdentifier
+        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+
+        return windows.compactMap { window in
+            guard
+                window[kCGWindowOwnerPID as String] as? pid_t == ownProcessIdentifier,
+                let number = window[kCGWindowNumber as String] as? Int,
+                let boundsDictionary = window[kCGWindowBounds as String] as? [String: CGFloat],
+                let bounds = CGRect(dictionaryRepresentation: boundsDictionary as CFDictionary)
+            else {
+                return nil
+            }
+            return (number, bounds)
+        }
+    }
+
     /// 클릭 지점이 이 앱이 띄운 메뉴 위인지 확인합니다.
     ///
     /// 설정 메뉴가 열려 있는 동안의 클릭은 메뉴가 자체적으로 처리하기 때문에,
@@ -277,20 +309,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 마우스 위치는 주 화면 왼쪽 아래가 원점이고 위로 갈수록 y가 커지는 반면,
         // 창 목록은 주 화면 왼쪽 위가 원점이고 아래로 갈수록 y가 커지므로 변환이 필요합니다.
         let point = CGPoint(x: location.x, y: mainScreen.frame.height - location.y)
-        let ownProcessIdentifier = ProcessInfo.processInfo.processIdentifier
         let panelWindowNumber = panel?.windowNumber
-        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
 
-        return windows.contains { window in
-            guard
-                window[kCGWindowOwnerPID as String] as? pid_t == ownProcessIdentifier,
-                window[kCGWindowNumber as String] as? Int != panelWindowNumber,
-                let boundsDictionary = window[kCGWindowBounds as String] as? [String: CGFloat],
-                let bounds = CGRect(dictionaryRepresentation: boundsDictionary as CFDictionary)
-            else {
-                return false
-            }
-            return bounds.contains(point)
+        return ownWindows().contains { number, bounds in
+            number != panelWindowNumber && bounds.contains(point)
         }
     }
 

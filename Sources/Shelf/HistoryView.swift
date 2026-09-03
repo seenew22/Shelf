@@ -185,7 +185,7 @@ struct HistoryView: View {
                         }
                     }
                     // 항목을 지우거나 새로 복사했을 때 목록이 툭 끊기지 않고 이어지게 합니다.
-                    .animation(.easeInOut(duration: 0.2), value: store.items)
+                    .animation(.spring(duration: 0.26, bounce: 0.3), value: store.items)
                 }
                 // 키보드로 옮겼을 때만 목록이 따라 움직입니다.
                 // 마우스로 가리켰을 때도 움직이면 항목이 커서 밑에서 빠져나가 버립니다.
@@ -287,7 +287,7 @@ private struct HistoryRow: View {
         .padding(.vertical, 8)
         .contentShape(Rectangle())
         .background(rowBackground)
-        .animation(.easeOut(duration: 0.12), value: isCopied)
+        .animation(.spring(duration: 0.24, bounce: 0.45), value: isCopied)
         .onHover { hovering in
             isHovering = hovering
             // 마우스와 키보드가 서로 다른 곳을 가리키면 헷갈리므로 선택 위치를 맞춰 둡니다.

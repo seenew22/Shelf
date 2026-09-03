@@ -70,9 +70,9 @@ final class EdgePeekPanel: NSPanel {
         orderFrontRegardless()
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.22
-            // 제자리를 살짝 지나쳤다가 돌아오게 해서 밀려 나오는 느낌을 줍니다.
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.3, 1.5, 0.6, 1)
+            context.duration = 0.17
+            // 제자리를 지나쳤다가 돌아오게 해서 튕겨 나오는 느낌을 줍니다.
+            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.24, 1.8, 0.5, 1)
             animator().setFrameOrigin(destination)
             animator().alphaValue = 1
         }
@@ -81,7 +81,7 @@ final class EdgePeekPanel: NSPanel {
     func hide() {
         guard isVisible else { return }
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.12
+            context.duration = 0.09
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             animator().alphaValue = 0
         } completionHandler: { [weak self] in
