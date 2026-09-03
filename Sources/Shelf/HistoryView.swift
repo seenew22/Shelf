@@ -19,6 +19,7 @@ private func makeThumbnail(from url: URL, maximumPixelSize: Int) -> NSImage? {
 struct HistoryView: View {
     @ObservedObject var store: HistoryStore
     @ObservedObject var l10n: LocalizationManager
+    @ObservedObject var selection: PanelSelection
 
     /// 항목을 클릭해서 클립보드에 다시 올린 뒤 화면을 닫을 때 호출됩니다.
     var onCopy: (ClipboardItem) -> Void
@@ -89,6 +90,10 @@ struct HistoryView: View {
                 }
             }
             .pickerStyle(.inline)
+
+            Divider()
+            // 어느 시점의 소스로 만든 앱인지 확인할 수 있게 버전과 커밋 해시를 적어 둡니다.
+            Text(verbatim: "Shelf \(Self.appVersion)")
         } label: {
             Image(systemName: "globe")
                 .foregroundStyle(.secondary)
@@ -121,22 +126,34 @@ struct HistoryView: View {
             // 창을 열 때 갱신되는 기준 시각과, 창이 열려 있는 동안의 주기적 갱신 중
             // 더 늦은 쪽을 사용합니다. 둘 중 하나만으로는 시간 표시가 멈춰 버립니다.
             let referenceDate = max(context.date, store.referenceDate)
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(store.items) { item in
-                        HistoryRow(
-                            item: item,
-                            payloadURL: store.payloadURL(for: item),
-                            referenceDate: referenceDate,
-                            l10n: l10n,
-                            isCopied: copiedItemID == item.id,
-                            onCopy: {
-                                copiedItemID = item.id
-                                onCopy(item)
-                            },
-                            onDelete: { store.remove(item) }
-                        )
-                        Divider().padding(.leading, HistoryRow.iconSide + 22)
+            ScrollViewReader { scrollProxy in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(store.items.enumerated()), id: \.element.id) { position, item in
+                            HistoryRow(
+                                item: item,
+                                payloadURL: store.payloadURL(for: item),
+                                referenceDate: referenceDate,
+                                l10n: l10n,
+                                isSelected: selection.index == position,
+                                isCopied: copiedItemID == item.id,
+                                onHover: { selection.select(position) },
+                                onCopy: {
+                                    copiedItemID = item.id
+                                    onCopy(item)
+                                },
+                                onDelete: { store.remove(item) }
+                            )
+                            .id(item.id)
+                            Divider().padding(.leading, HistoryRow.iconSide + 22)
+                        }
+                    }
+                }
+                // 키보드로 옮긴 항목이 화면 밖에 있으면 따라 내려가도록 합니다.
+                .onChange(of: selection.index) {
+                    guard store.items.indices.contains(selection.index) else { return }
+                    withAnimation(.easeOut(duration: 0.12)) {
+                        scrollProxy.scrollTo(store.items[selection.index].id, anchor: .center)
                     }
                 }
             }
@@ -152,8 +169,8 @@ struct HistoryView: View {
 
             Spacer()
 
-            // 어느 시점의 소스로 만든 앱인지 확인할 수 있게 버전과 커밋 해시를 적어 둡니다.
-            Text(Self.appVersion)
+            // 단축키를 따로 외우지 않아도 되도록 조작 방법을 적어 둡니다.
+            Text(l10n[.footerKeyHints])
                 .foregroundStyle(.tertiary)
 
             Spacer()
@@ -177,9 +194,13 @@ private struct HistoryRow: View {
 
     @ObservedObject var l10n: LocalizationManager
 
+    /// 키보드 또는 마우스로 지금 가리키고 있는 항목인지 여부입니다.
+    let isSelected: Bool
+
     /// 방금 이 항목을 클릭해서 클립보드에 올렸는지 여부입니다.
     let isCopied: Bool
 
+    let onHover: () -> Void
     let onCopy: () -> Void
     let onDelete: () -> Void
 
@@ -227,7 +248,11 @@ private struct HistoryRow: View {
         .contentShape(Rectangle())
         .background(rowBackground)
         .animation(.easeOut(duration: 0.12), value: isCopied)
-        .onHover { isHovering = $0 }
+        .onHover { hovering in
+            isHovering = hovering
+            // 마우스와 키보드가 서로 다른 곳을 가리키면 헷갈리므로 선택 위치를 맞춰 둡니다.
+            if hovering { onHover() }
+        }
         .onTapGesture(perform: onCopy)
         .onDrag(makeItemProvider)
         .task(id: item.id) { await loadThumbnailIfNeeded() }
@@ -236,7 +261,7 @@ private struct HistoryRow: View {
 
     private var rowBackground: Color {
         if isCopied { return Color.accentColor.opacity(0.22) }
-        return isHovering ? Color.primary.opacity(0.06) : Color.clear
+        return isSelected ? Color.primary.opacity(0.08) : Color.clear
     }
 
     @ViewBuilder

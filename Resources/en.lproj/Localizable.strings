@@ -9,5 +9,6 @@
 "hint.text" = "Click to copy it back, or drag it out as text";
 "hint.image" = "Click to copy it back, or drag it out as an image file";
 "hint.file" = "Click to copy it back, or drag it out as a file";
+"footer.keyHints" = "↑↓ move · ⏎ copy · esc close";
 "menu.language" = "Language";
 "language.system" = "Match system";

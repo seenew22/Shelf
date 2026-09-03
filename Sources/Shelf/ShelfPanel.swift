@@ -61,4 +61,22 @@ final class ShelfPanel: NSPanel {
 
         setFrameOrigin(origin)
     }
+
+    /// 마우스 커서 바로 옆에 창을 배치합니다.
+    ///
+    /// 단축키로 열었을 때 시선과 손이 이미 가 있는 자리에 창이 나타나므로,
+    /// 화면 위쪽 메뉴 바까지 올라갔다 내려올 필요가 없습니다.
+    func position(near cursorLocation: NSPoint) {
+        let size = frame.size
+        // 커서 왼쪽 위 모서리에서 살짝 벗어난 지점을 창의 왼쪽 위로 삼습니다.
+        var origin = NSPoint(x: cursorLocation.x - 12, y: cursorLocation.y + 12 - size.height)
+
+        let screen = NSScreen.screens.first { $0.frame.contains(cursorLocation) } ?? NSScreen.main
+        if let visible = screen?.visibleFrame {
+            origin.x = min(max(origin.x, visible.minX + 8), visible.maxX - size.width - 8)
+            origin.y = min(max(origin.y, visible.minY + 8), visible.maxY - size.height - 8)
+        }
+
+        setFrameOrigin(origin)
+    }
 }

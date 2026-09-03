@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: HistoryStore?
     private var clipboardMonitor: ClipboardMonitor?
     private var localization: LocalizationManager?
+    private let selection = PanelSelection()
     private var toggleHotkey: GlobalHotkey?
 
     /// 복사 표시를 잠깐 보여 준 뒤 창을 닫기 위해 예약해 둔 작업입니다.
@@ -21,8 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 창 바깥을 클릭했을 때 창을 닫기 위한 감시자입니다.
     private var outsideClickMonitor: Any?
 
-    /// 창이 떠 있는 동안 Esc 키를 처리하기 위한 감시자입니다.
-    private var escapeKeyMonitor: Any?
+    /// 창이 떠 있는 동안 키 입력을 처리하기 위한 감시자입니다.
+    private var keyMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let store = HistoryStore()
@@ -63,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             rootView: HistoryView(
                 store: store,
                 l10n: localization,
+                selection: selection,
                 onCopy: { [weak self] item in self?.copyAndClose(item) },
                 onQuit: { NSApp.terminate(nil) }
             )
@@ -74,33 +76,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             keyCode: GlobalHotkey.toggleShelfKeyCode,
             modifiers: GlobalHotkey.toggleShelfModifiers
         ) { [weak self] in
-            self?.togglePanel()
+            self?.togglePanel(anchoredTo: .mouseCursor)
         }
     }
 
     // MARK: - 창 열고 닫기
 
-    @objc private func statusItemClicked() {
-        togglePanel()
+    /// 창을 어디에 붙여서 띄울지를 나타냅니다.
+    private enum PanelAnchor {
+        /// 메뉴 바 아이콘 바로 아래에 띄웁니다.
+        case statusItem
+        /// 마우스 커서 옆에 띄웁니다.
+        case mouseCursor
     }
 
-    private func togglePanel() {
+    @objc private func statusItemClicked() {
+        togglePanel(anchoredTo: .statusItem)
+    }
+
+    private func togglePanel(anchoredTo anchor: PanelAnchor) {
         guard let panel else { return }
         if panel.isVisible {
             closePanel()
         } else {
-            openPanel()
+            openPanel(anchoredTo: anchor)
         }
     }
 
-    private func openPanel() {
-        guard let panel, let button = statusItem?.button else { return }
+    private func openPanel(anchoredTo anchor: PanelAnchor) {
+        guard let panel else { return }
 
         pendingCloseTask?.cancel()
         pendingCloseTask = nil
 
         store?.refreshReferenceDate()
-        panel.position(below: button)
+        selection.reset()
+
+        switch anchor {
+        case .statusItem:
+            guard let button = statusItem?.button else { return }
+            panel.position(below: button)
+        case .mouseCursor:
+            panel.position(near: NSEvent.mouseLocation)
+        }
         // 앱을 활성 상태로 만들지 않고 창만 앞으로 내보냅니다.
         panel.orderFrontRegardless()
         panel.makeKey()
@@ -152,11 +170,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        if escapeKeyMonitor == nil {
-            escapeKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                guard event.keyCode == 53 else { return event } // 53 = Esc
-                MainActor.assumeIsolated { self?.closePanel() }
-                return nil
+        if keyMonitor == nil {
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                // NSEvent 자체를 격리 경계 너머로 넘기지 않도록 키 코드만 꺼내서 전달합니다.
+                let keyCode = event.keyCode
+                let handled = MainActor.assumeIsolated { self?.handleKeyDown(keyCode) ?? false }
+                return handled ? nil : event
             }
         }
     }
@@ -188,14 +207,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// 창이 떠 있는 동안의 키 입력을 처리합니다.
+    /// - Returns: 우리가 처리했으면 true. 이때 해당 입력은 다른 곳으로 전달되지 않습니다.
+    private func handleKeyDown(_ keyCode: UInt16) -> Bool {
+        let itemCount = store?.items.count ?? 0
+
+        switch keyCode {
+        case 53: // Esc
+            closePanel()
+            return true
+
+        case 126: // 위쪽 화살표
+            selection.move(by: -1, itemCount: itemCount)
+            return true
+
+        case 125: // 아래쪽 화살표
+            selection.move(by: 1, itemCount: itemCount)
+            return true
+
+        case 36, 76: // Return, 숫자판 Enter
+            guard let item = store?.items[safe: selection.index] else { return true }
+            copyAndClose(item)
+            return true
+
+        default:
+            return false
+        }
+    }
+
     private func removeEventMonitors() {
         if let outsideClickMonitor {
             NSEvent.removeMonitor(outsideClickMonitor)
         }
-        if let escapeKeyMonitor {
-            NSEvent.removeMonitor(escapeKeyMonitor)
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
         }
         outsideClickMonitor = nil
-        escapeKeyMonitor = nil
+        keyMonitor = nil
     }
 }

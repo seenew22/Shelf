@@ -45,6 +45,7 @@ enum StringKey: String {
     case hintText = "hint.text"
     case hintImage = "hint.image"
     case hintFile = "hint.file"
+    case footerKeyHints = "footer.keyHints"
     case menuLanguage = "menu.language"
     case languageSystem = "language.system"
 }
