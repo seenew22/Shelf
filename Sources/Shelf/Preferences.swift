@@ -22,11 +22,35 @@ enum EdgeHoverSide: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// 창이 나타날 때의 움직임 종류입니다.
+enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
+    /// 작은 방울이 부풀어 오르듯 모서리가 펴지면서 커집니다.
+    case droplet
+    /// 서랍을 빼내듯 한 방향으로 곧게 펼쳐집니다. 튀지 않고 차분합니다.
+    case drawer
+    /// 작은 크기에서 힘차게 튀어나옵니다. 가장 빠르고 활기찹니다.
+    case pop
+    /// 거의 움직이지 않고 조용히 나타납니다. 움직임이 거슬릴 때 고르시면 됩니다.
+    case calm
+
+    var id: String { rawValue }
+
+    var stringKey: StringKey {
+        switch self {
+        case .droplet: .animationDroplet
+        case .drawer: .animationDrawer
+        case .pop: .animationPop
+        case .calm: .animationCalm
+        }
+    }
+}
+
 /// 언어를 제외한 앱 설정을 담습니다.
 @MainActor
 final class Preferences: ObservableObject {
 
     private static let edgeHoverKey = "edgeHoverSide"
+    private static let animationStyleKey = "panelAnimationStyle"
 
     /// 기본값은 사용 안 함입니다. 화면 끝을 스치기만 해도 창이 뜨면 거슬릴 수 있어서,
     /// 원하시는 분이 직접 켜도록 두었습니다.
@@ -38,11 +62,21 @@ final class Preferences: ObservableObject {
         }
     }
 
+    @Published var panelAnimationStyle: PanelAnimationStyle {
+        didSet {
+            guard panelAnimationStyle != oldValue else { return }
+            UserDefaults.standard.set(panelAnimationStyle.rawValue, forKey: Self.animationStyleKey)
+        }
+    }
+
     /// 설정이 바뀌었을 때 감시자를 켜거나 끄기 위해 앱 쪽에서 연결해 둡니다.
     var onEdgeHoverSideChanged: ((EdgeHoverSide) -> Void)?
 
     init() {
-        let stored = UserDefaults.standard.string(forKey: Self.edgeHoverKey)
-        edgeHoverSide = stored.flatMap(EdgeHoverSide.init(rawValue:)) ?? .off
+        let storedSide = UserDefaults.standard.string(forKey: Self.edgeHoverKey)
+        edgeHoverSide = storedSide.flatMap(EdgeHoverSide.init(rawValue:)) ?? .off
+
+        let storedStyle = UserDefaults.standard.string(forKey: Self.animationStyleKey)
+        panelAnimationStyle = storedStyle.flatMap(PanelAnimationStyle.init(rawValue:)) ?? .droplet
     }
 }

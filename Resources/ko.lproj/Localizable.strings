@@ -18,3 +18,8 @@
 "edge.left" = "왼쪽";
 "edge.right" = "오른쪽";
 "edge.both" = "양쪽";
+"menu.animation" = "나타나는 방식";
+"animation.droplet" = "물방울";
+"animation.drawer" = "서랍";
+"animation.pop" = "팝";
+"animation.calm" = "잔잔하게";

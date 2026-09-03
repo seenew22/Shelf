@@ -18,3 +18,8 @@
 "edge.left" = "Left";
 "edge.right" = "Right";
 "edge.both" = "Both";
+"menu.animation" = "Appearance motion";
+"animation.droplet" = "Droplet";
+"animation.drawer" = "Drawer";
+"animation.pop" = "Pop";
+"animation.calm" = "Calm";

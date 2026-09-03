@@ -25,6 +25,17 @@ final class EdgeHoverMonitor {
     /// 손잡이 폭을 확실히 지나칠 만큼으로 잡아서, 스쳐 지나가다 열리는 일이 없게 합니다.
     static let pullThreshold: CGFloat = 34
 
+    /// 끌어당기지 않고 가장자리에 계속 머물기만 해도, 이 시간이 지나면 선반을 펼칩니다.
+    /// 1초 가까이 화면 끝에 마우스를 붙여 두는 일은 실수로 일어나지 않기 때문에,
+    /// 끌어당기기가 번거로울 때의 다른 길로 열어 두었습니다.
+    static let holdToOpenDuration: TimeInterval = 0.75
+
+    /// 화면 위아래 끝에서 이만큼은 감지하지 않습니다.
+    ///
+    /// 마우스를 잠시 치워 둘 때 화면 모서리에 놓는 습관이 흔하고, macOS 의 핫코너 기능과도
+    /// 겹칩니다. 모서리를 비워 두면 그런 경우에 선반이 끼어들지 않습니다.
+    static let cornerExclusion: CGFloat = 48
+
     /// 끌어당기는 동안 허용하는 세로 방향 흔들림입니다.
     /// 이보다 크게 벗어나면 끌어당길 뜻이 없다고 보고 손잡이를 거둡니다.
     static let verticalTolerance: CGFloat = 60
@@ -58,8 +69,8 @@ final class EdgeHoverMonitor {
         case away
         /// 가장자리에 닿아 머무는 중입니다.
         case dwelling(edge: HorizontalEdge, screen: NSScreen, since: Date)
-        /// 손잡이가 나와 있고, 끌어당기기를 기다립니다.
-        case peeking(edge: HorizontalEdge, screen: NSScreen, anchorHeight: CGFloat)
+        /// 손잡이가 나와 있고, 끌어당기거나 계속 머물기를 기다립니다.
+        case peeking(edge: HorizontalEdge, screen: NSScreen, anchorHeight: CGFloat, since: Date)
         /// 방금 선반을 열었거나 닫았습니다. 가장자리를 벗어나기 전까지는 다시 반응하지 않습니다.
         case settling
     }
@@ -118,6 +129,13 @@ final class EdgeHoverMonitor {
     private func check() {
         let location = NSEvent.mouseLocation
 
+        // 창을 끌어다 화면 끝에 붙이는 중이라면 선반이 끼어들지 않아야 합니다.
+        if NSEvent.pressedMouseButtons != 0, !isPanelVisible {
+            cancelPeekIfNeeded()
+            stage = .away
+            return
+        }
+
         if isPanelVisible {
             if let autoCloseFrame {
                 checkWhetherPointerLeft(location, panelFrame: autoCloseFrame)
@@ -142,12 +160,24 @@ final class EdgeHoverMonitor {
                 return
             }
             guard Date().timeIntervalSince(since) >= Self.peekDwellDuration else { return }
-            stage = .peeking(edge: edge, screen: screen, anchorHeight: location.y)
+            stage = .peeking(edge: edge, screen: screen, anchorHeight: location.y, since: since)
             onPeek?(edge, screen, location.y)
 
-        case .peeking(let edge, let screen, let anchorHeight):
+        case .peeking(let edge, let screen, let anchorHeight, let since):
+            // 끌어당기지 않아도 충분히 오래 머물렀다면 그대로 펼칩니다.
+            if Date().timeIntervalSince(since) >= Self.holdToOpenDuration,
+               self.edge(at: location) != nil {
+                open(edge: edge, screen: screen, at: anchorHeight)
+                return
+            }
             evaluatePull(at: location, edge: edge, screen: screen, anchorHeight: anchorHeight)
         }
+    }
+
+    private func open(edge: HorizontalEdge, screen: NSScreen, at height: CGFloat) {
+        stage = .settling
+        onPeekCancelled?()
+        onPull?(edge, screen, height)
     }
 
     /// 손잡이가 나와 있는 동안, 안쪽으로 끌어당겼는지 판단합니다.
@@ -172,10 +202,7 @@ final class EdgeHoverMonitor {
         }
 
         guard inwardDistance >= Self.pullThreshold else { return }
-
-        stage = .settling
-        onPeekCancelled?()
-        onPull?(edge, screen, anchorHeight)
+        open(edge: edge, screen: screen, at: anchorHeight)
     }
 
     private func cancelPeekIfNeeded() {
@@ -191,6 +218,13 @@ final class EdgeHoverMonitor {
             return nil
         }
         let frame = screen.frame
+
+        // 화면 위아래 모서리 근처는 비워 둡니다.
+        guard location.y > frame.minY + Self.cornerExclusion,
+              location.y < frame.maxY - Self.cornerExclusion
+        else {
+            return nil
+        }
 
         if side.includesLeft,
            location.x <= frame.minX + Self.edgeThickness,

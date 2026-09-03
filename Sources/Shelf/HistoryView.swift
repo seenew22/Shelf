@@ -112,6 +112,13 @@ struct HistoryView: View {
             }
             .pickerStyle(.inline)
 
+            Picker(l10n[.menuAnimation], selection: $preferences.panelAnimationStyle) {
+                ForEach(PanelAnimationStyle.allCases) { style in
+                    Text(l10n[style.stringKey]).tag(style)
+                }
+            }
+            .pickerStyle(.inline)
+
             Picker(l10n[.menuLanguage], selection: $l10n.language) {
                 ForEach(AppLanguage.allCases) { language in
                     Text(language.menuTitle ?? l10n[.languageSystem]).tag(language)

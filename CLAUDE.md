@@ -72,10 +72,20 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   cursor (the hotkey), or flush against a screen edge (edge hover).
 - **`EdgeHoverMonitor`** — polls `NSEvent.mouseLocation` and runs a small state
   machine: rest within 2pt of a chosen screen edge and a small handle
-  (`EdgePeekPanel`) slides out; pull inward from there and the shelf opens. Two
-  stages rather than one because an edge that opens the moment you touch it fires
-  constantly while you are just moving around the screen, and there is no warning
-  before it does. The handle is the warning, and it costs nothing to ignore.
+  (`EdgePeekPanel`) slides out; from there either pull inward or keep holding and
+  the shelf opens. Two stages rather than one because an edge that opens the moment
+  you touch it fires constantly while you are just moving around the screen, and
+  there is no warning before it does. The handle is the warning, and it costs
+  nothing to ignore. Holding is safe as a second route because nobody parks a cursor
+  against a screen edge for three quarters of a second by accident - except in the
+  corners, which people do use as a parking spot and which macOS gives to Hot
+  Corners, so the top and bottom 48pt of each edge are excluded. A held mouse button
+  suppresses the whole thing, since that means a window is being dragged to the edge.
+- **`PanelAnimationStyle`** — four named recipes (droplet, drawer, pop, calm) chosen
+  in the settings menu. A recipe is just the collapsed scale per opening direction
+  plus one `Animation` for each of size, corner radius and opacity. Keeping those on
+  separate clocks is what makes the styles distinguishable; drive them from one
+  animation and every style collapses back into "it gets bigger".
   Polling beats a global mouse monitor here: the monitor wakes on every mouse move
   system-wide, while the question being asked is "has it *stayed* here", and neither
   needs Accessibility permission. Off by default (`Preferences`), since a shelf that

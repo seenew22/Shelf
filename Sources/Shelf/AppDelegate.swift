@@ -173,7 +173,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 접힌 모습이 한 번 그려진 다음에 펼쳐져야 움직임이 보입니다.
         // 곧바로 펼치면 이미 펼쳐진 상태로 처음 그려져서 아무 움직임도 나타나지 않습니다.
         Task { @MainActor [weak self] in
-            self?.presentation.expand(from: slideOrigin)
+            guard let self else { return }
+            self.presentation.expand(from: slideOrigin, style: self.preferences.panelAnimationStyle)
         }
         statusItem?.button?.highlight(true)
 
@@ -195,9 +196,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 먼저 접히는 움직임을 시작하고, 다 접힌 다음에 창을 실제로 감춥니다.
         presentation.collapse()
+        let collapseDuration = presentation.collapseDuration
         hideTask?.cancel()
         hideTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(PanelPresentation.collapseDuration + 0.02))
+            try? await Task.sleep(for: .seconds(collapseDuration + 0.02))
             guard !Task.isCancelled else { return }
             self?.panel?.orderOut(nil)
         }
