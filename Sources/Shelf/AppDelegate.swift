@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import SwiftUI
 
 /// 앱 전체의 수명을 관리합니다.
@@ -17,7 +18,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let preferences = Preferences()
     private let presentation = PanelPresentation()
     private let edgeHoverMonitor = EdgeHoverMonitor()
-    private let edgePeekPanel = EdgePeekPanel()
     private var toggleHotkey: GlobalHotkey?
 
     /// 창이 지금 열려 있는지 여부입니다.
@@ -35,6 +35,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 창이 떠 있는 동안 키 입력을 처리하기 위한 감시자입니다.
     private var keyMonitor: Any?
+
+    /// 화면 밖의 선반을 잡아 빼는 중일 때의 상태입니다.
+    private var edgeDrag: EdgeDrag?
+
+    /// 잡아 빼는 중에 화면 안으로 미리 내밀어 두는 폭입니다.
+    /// 이만큼이 손잡이 노릇을 하며, 별도의 손잡이를 그리지 않고 선반 자체의 끝을 씁니다.
+    private static let edgeGripWidth: CGFloat = 30
+
+    /// 마우스를 당긴 거리에 견주어 선반이 따라 나오는 비율입니다.
+    /// 1 이면 손끝만큼만 나와서 답답하므로, 조금 더 크게 반응하도록 했습니다.
+    private static let edgePullGain: CGFloat = 2.4
+
+    /// 화면 밖에서 잡아 빼고 있는 선반의 위치 정보입니다.
+    private struct EdgeDrag {
+        var edge: EdgeHoverMonitor.HorizontalEdge
+        var screen: NSScreen
+        var cursorHeight: CGFloat
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let store = HistoryStore()
@@ -95,18 +113,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setUpEdgeHover() {
-        edgeHoverMonitor.onPeek = { [weak self] edge, screen, height in
-            self?.edgePeekPanel.show(at: edge, on: screen, centeredAt: height)
+        edgeHoverMonitor.onPeekBegan = { [weak self] edge, screen, height in
+            self?.beginEdgeDrag(edge: edge, screen: screen, cursorHeight: height)
         }
-        edgeHoverMonitor.onPullProgress = { [weak self] progress in
-            self?.edgePeekPanel.updatePull(progress: progress)
+        edgeHoverMonitor.onPullChanged = { [weak self] distance in
+            self?.updateEdgeDrag(pullDistance: distance)
         }
         edgeHoverMonitor.onPeekCancelled = { [weak self] in
-            self?.edgePeekPanel.hide()
+            self?.cancelEdgeDrag()
         }
-        edgeHoverMonitor.onPull = { [weak self] edge, screen, height in
-            self?.edgePeekPanel.hide()
-            self?.openPanel(anchoredTo: .screenEdge(edge, screen, cursorHeight: height))
+        edgeHoverMonitor.onCommit = { [weak self] edge, screen, height in
+            self?.commitEdgeDrag(edge: edge, screen: screen, cursorHeight: height)
         }
         edgeHoverMonitor.onPointerLeft = { [weak self] in
             guard let self else { return }
@@ -129,8 +146,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case statusItem
         /// 마우스 커서 옆에 띄웁니다.
         case mouseCursor
-        /// 화면의 좌우 가장자리에 붙여서 띄웁니다.
-        case screenEdge(EdgeHoverMonitor.HorizontalEdge, NSScreen, cursorHeight: CGFloat)
     }
 
     @objc private func statusItemClicked() {
@@ -164,15 +179,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .mouseCursor:
             panel.position(near: NSEvent.mouseLocation)
             slideOrigin = .cursor
-        case .screenEdge(let edge, let screen, let cursorHeight):
-            panel.position(atEdge: edge, on: screen, cursorHeight: cursorHeight)
-            slideOrigin = edge == .left ? .leadingEdge : .trailingEdge
         }
 
         // 앱을 활성 상태로 만들지 않고 창만 앞으로 내보냅니다.
         hideTask?.cancel()
         hideTask = nil
-        edgePeekPanel.hide()
+        edgeDrag = nil
         panel.orderFrontRegardless()
         panel.makeKey()
         isPanelPresented = true
@@ -185,17 +197,134 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         statusItem?.button?.highlight(true)
 
-        // 가장자리로 연 창만 마우스가 멀어졌을 때 스스로 닫히게 합니다.
-        let opensFromEdge = if case .screenEdge = anchor { true } else { false }
-        edgeHoverMonitor.panelDidChangeVisibility(
-            isVisible: true,
-            autoCloseFrame: opensFromEdge ? panel.cardFrame : nil
+        // 단축키나 아이콘으로 연 창은 마우스가 멀어져도 그대로 둡니다.
+        edgeHoverMonitor.panelDidChangeVisibility(isVisible: true, autoCloseFrame: nil)
+
+        startEventMonitors()
+    }
+
+    // MARK: - 가장자리에서 잡아 빼기
+
+    /// 화면 밖에 세워 둔 선반의 끝을 화면 안으로 조금 내밉니다.
+    ///
+    /// 별도의 손잡이를 그리는 대신 선반 자체의 가장자리를 내밀어 두면, 잡아당기는 대상과
+    /// 나오는 물건이 처음부터 같은 것이 됩니다. 그래야 당기는 동작과 열리는 결과가
+    /// 하나로 이어져 보입니다.
+    private func beginEdgeDrag(edge: EdgeHoverMonitor.HorizontalEdge, screen: NSScreen, cursorHeight: CGFloat) {
+        guard let panel, !isPanelPresented else { return }
+
+        edgeDrag = EdgeDrag(edge: edge, screen: screen, cursorHeight: cursorHeight)
+        hideTask?.cancel()
+        hideTask = nil
+
+        store?.refreshReferenceDate()
+        selection.reset()
+        // 창 자체가 밀려 나오면서 드러나므로, 내용물까지 커지면 두 움직임이 겹칩니다.
+        presentation.showImmediately()
+
+        // 완전히 화면 밖에 있는 창은 시스템이 화면 안으로 끌어다 놓을 수 있으므로,
+        // 눈에 띄지 않을 만큼만 걸쳐 둔 자리에서 시작합니다.
+        panel.position(atEdge: edge, on: screen, cursorHeight: cursorHeight, revealedWidth: 1)
+        panel.orderFrontRegardless()
+        panel.animate(
+            toRevealedWidth: Self.edgeGripWidth,
+            atEdge: edge,
+            on: screen,
+            cursorHeight: cursorHeight,
+            duration: 0.28,
+            timing: CAMediaTimingFunction(name: .easeOut)
         )
+    }
+
+    /// 당긴 거리만큼 선반을 따라 나오게 합니다.
+    ///
+    /// 마우스 위치는 일정 주기로만 확인하므로 값이 띄엄띄엄 들어옵니다.
+    /// 아주 짧은 움직임으로 그 사이를 메워서 끊겨 보이지 않게 합니다.
+    private func updateEdgeDrag(pullDistance: CGFloat) {
+        guard let panel, let drag = edgeDrag else { return }
+
+        let revealed = min(
+            Self.edgeGripWidth + max(0, pullDistance) * Self.edgePullGain,
+            ShelfPanel.fullyRevealedWidth
+        )
+        panel.animate(
+            toRevealedWidth: revealed,
+            atEdge: drag.edge,
+            on: drag.screen,
+            cursorHeight: drag.cursorHeight,
+            duration: 0.05,
+            timing: CAMediaTimingFunction(name: .linear)
+        )
+    }
+
+    /// 잡아당기기를 그만두었을 때, 선반을 화면 밖으로 도로 밀어 넣습니다.
+    private func cancelEdgeDrag() {
+        guard let panel, let drag = edgeDrag else { return }
+        edgeDrag = nil
+
+        panel.animate(
+            toRevealedWidth: 1,
+            atEdge: drag.edge,
+            on: drag.screen,
+            cursorHeight: drag.cursorHeight,
+            duration: 0.20,
+            timing: CAMediaTimingFunction(name: .easeIn)
+        )
+
+        hideTask?.cancel()
+        hideTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(0.22))
+            guard !Task.isCancelled else { return }
+            self?.panel?.orderOut(nil)
+        }
+    }
+
+    /// 선반을 끝까지 꺼내서 제자리에 세웁니다.
+    private func commitEdgeDrag(edge: EdgeHoverMonitor.HorizontalEdge, screen: NSScreen, cursorHeight: CGFloat) {
+        guard let panel else { return }
+
+        edgeDrag = nil
+        hideTask?.cancel()
+        hideTask = nil
+        pendingCloseTask?.cancel()
+        pendingCloseTask = nil
+
+        // 제자리를 살짝 지나쳤다가 되돌아오게 해서, 툭 하고 자리 잡는 느낌을 만듭니다.
+        let snap = preferences.panelAnimationStyle.edgeSnap
+        panel.animate(
+            toRevealedWidth: ShelfPanel.fullyRevealedWidth,
+            atEdge: edge,
+            on: screen,
+            cursorHeight: cursorHeight,
+            duration: snap.duration,
+            timing: CAMediaTimingFunction(
+                controlPoints: snap.controlPoints.0, snap.controlPoints.1,
+                snap.controlPoints.2, snap.controlPoints.3
+            )
+        )
+
+        panel.makeKey()
+        isPanelPresented = true
+        statusItem?.button?.highlight(true)
+
+        // 가장자리에서 꺼낸 창만, 마우스가 한참 멀어져 있으면 스스로 치워집니다.
+        let restingFrame = panel.restingCardFrame(
+            atEdge: edge,
+            on: screen,
+            cursorHeight: cursorHeight,
+            revealedWidth: ShelfPanel.fullyRevealedWidth
+        )
+        edgeHoverMonitor.panelDidChangeVisibility(isVisible: true, autoCloseFrame: restingFrame)
 
         startEventMonitors()
     }
 
     private func closePanel() {
+        // 아직 다 꺼내지 않은 상태라면 도로 밀어 넣는 것으로 충분합니다.
+        if edgeDrag != nil {
+            cancelEdgeDrag()
+            return
+        }
         guard isPanelPresented else { return }
         isPanelPresented = false
         pendingCloseTask?.cancel()
@@ -278,8 +407,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 그래서 화면에 떠 있는 창 중에 이 프로세스가 가진 것이 패널과 손잡이 말고 또 있는지를
     /// 보고 판단합니다.
     private func hasOpenMenu() -> Bool {
-        let ownWindowNumbers = Set([panel?.windowNumber, edgePeekPanel.windowNumber].compactMap { $0 })
-        return ownWindows().contains { number, _ in !ownWindowNumbers.contains(number) }
+        let panelWindowNumber = panel?.windowNumber
+        return ownWindows().contains { number, _ in number != panelWindowNumber }
     }
 
     /// 화면에 떠 있는 창 중에서 이 프로세스가 가진 것들의 번호와 위치입니다.

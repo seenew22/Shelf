@@ -71,15 +71,19 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   ways depending on how it was opened: under the status item, beside the mouse
   cursor (the hotkey), or flush against a screen edge (edge hover).
 - **`EdgeHoverMonitor`** — polls `NSEvent.mouseLocation` and runs a small state
-  machine: rest within 2pt of a chosen screen edge and a small handle
-  (`EdgePeekPanel`) slides out; from there either pull inward or keep holding and
-  the shelf opens. Two stages rather than one because an edge that opens the moment
-  you touch it fires constantly while you are just moving around the screen, and
-  there is no warning before it does. The handle is the warning, and it costs
-  nothing to ignore. It also stretches inward in proportion to how far the pull has
-  gone: a handle that sits still and then vanishes never explains what the pull was
-  for, whereas one that follows the cursor makes the gesture legible without a word
-  of instruction. Holding is safe as a second route because nobody parks a cursor
+  machine: rest within 2pt of a chosen screen edge and the shelf itself slides a
+  30pt strip in from off-screen; from there either pull inward or keep holding and
+  it comes the rest of the way. Two stages rather than one because an edge that
+  opens the moment you touch it fires constantly while you are just moving around
+  the screen, and there is no warning before it does.
+
+  The thing you grab is the panel, not a separate handle. An earlier version drew a
+  small tinted tab that vanished the instant the pull committed, and the pull and
+  the result never looked like one motion. Now the window sits mostly off-screen and
+  `revealedWidth` says how much of it is in - 1pt while hidden, 30pt at rest, the
+  full width once committed - so pulling literally drags the panel out and the
+  commit is a spring past the resting position. Never 0pt: a window entirely off
+  every screen risks being repositioned by the system. Holding is safe as a second route because nobody parks a cursor
   against a screen edge for three quarters of a second by accident - except in the
   corners, which people do use as a parking spot and which macOS gives to Hot
   Corners, so the top and bottom 48pt of each edge are excluded. A held mouse button

@@ -43,6 +43,17 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .calm: .animationCalm
         }
     }
+
+    /// 가장자리에서 잡아 뺀 선반이 제자리에 놓일 때의 움직임입니다.
+    /// 제어점의 두 번째 값이 1을 넘으면 제자리를 지나쳤다가 되돌아옵니다.
+    var edgeSnap: (duration: TimeInterval, controlPoints: (Float, Float, Float, Float)) {
+        switch self {
+        case .droplet: (0.42, (0.18, 1.62, 0.42, 1))
+        case .drawer: (0.34, (0.22, 1.14, 0.36, 1))
+        case .pop: (0.30, (0.16, 1.9, 0.38, 1))
+        case .calm: (0.26, (0.25, 1, 0.35, 1))
+        }
+    }
 }
 
 /// 언어를 제외한 앱 설정을 담습니다.

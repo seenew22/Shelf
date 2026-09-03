@@ -48,6 +48,24 @@ final class PanelPresentation: ObservableObject {
         }
     }
 
+    /// 움직임 없이 곧바로 온전한 모습으로 둡니다.
+    ///
+    /// 가장자리에서 잡아 빼는 동안에는 창 자체가 움직이면서 드러나므로,
+    /// 내용물까지 따로 커지면 두 움직임이 겹쳐서 어지러워집니다.
+    func showImmediately() {
+        scaleX = 1
+        scaleY = 1
+        opacity = 1
+        cornerRadius = panelExpandedCornerRadius
+        blurRadius = 0
+        collapsedState = CollapsedState(
+            scale: CGSize(width: 1, height: 1),
+            cornerRadius: panelExpandedCornerRadius,
+            blurRadius: 0
+        )
+        collapseDuration = 0.12
+    }
+
     func collapse() {
         withAnimation(.easeIn(duration: collapseDuration)) {
             applyCollapsedState()

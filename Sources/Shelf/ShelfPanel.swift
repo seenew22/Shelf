@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import SwiftUI
 
 /// 히스토리 목록을 담는 떠 있는 창입니다.
@@ -133,21 +134,79 @@ final class ShelfPanel: NSPanel {
         setCardOrigin(origin)
     }
 
-    /// 화면의 좌우 가장자리에 붙여서 창을 배치합니다.
-    ///
-    /// 세로 위치는 마우스가 있던 높이를 기준으로 맞춰서, 시선이 가 있는 자리에 나타나게 합니다.
-    func position(atEdge edge: EdgeHoverMonitor.HorizontalEdge, on screen: NSScreen, cursorHeight: CGFloat) {
+    // MARK: - 가장자리에서 잡아 빼기
+    //
+    // 화면 밖에 세워 둔 선반을 손으로 잡아 빼내는 것처럼 다룹니다.
+    // 별도의 손잡이를 그리지 않고 선반 자체의 가장자리를 조금 내밀어 두면,
+    // 잡아당기는 대상과 나오는 물건이 처음부터 같은 것이 됩니다.
+
+    /// 화면 가장자리에서 창을 완전히 꺼냈을 때 드러나는 폭입니다.
+    static var fullyRevealedWidth: CGFloat { contentWidth + edgeInset }
+
+    /// 다 꺼낸 카드와 화면 끝 사이의 간격입니다.
+    static let edgeInset: CGFloat = 8
+
+    /// 카드의 가장자리 쪽 끝이 화면 안으로 `revealedWidth` 만큼만 들어오도록 창을 놓습니다.
+    /// 나머지는 화면 밖에 있게 되며, 다 꺼내면 제자리에 놓입니다.
+    func position(
+        atEdge edge: EdgeHoverMonitor.HorizontalEdge,
+        on screen: NSScreen,
+        cursorHeight: CGFloat,
+        revealedWidth: CGFloat
+    ) {
+        setCardOrigin(cardOrigin(atEdge: edge, on: screen, cursorHeight: cursorHeight, revealedWidth: revealedWidth))
+    }
+
+    /// 드러난 폭을 부드럽게 바꿉니다.
+    /// - Parameter timing: 제자리를 지나쳤다가 돌아오게 하려면 넘치는 곡선을 넘깁니다.
+    func animate(
+        toRevealedWidth revealedWidth: CGFloat,
+        atEdge edge: EdgeHoverMonitor.HorizontalEdge,
+        on screen: NSScreen,
+        cursorHeight: CGFloat,
+        duration: TimeInterval,
+        timing: CAMediaTimingFunction
+    ) {
+        let origin = cardOrigin(atEdge: edge, on: screen, cursorHeight: cursorHeight, revealedWidth: revealedWidth)
+        let windowOrigin = NSPoint(x: origin.x - Self.shadowMargin, y: origin.y - Self.shadowMargin)
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = duration
+            context.timingFunction = timing
+            animator().setFrameOrigin(windowOrigin)
+        }
+    }
+
+    /// 지정한 조건으로 놓았을 때 카드가 차지하게 될 자리입니다.
+    /// 움직임이 끝나기를 기다리지 않고 최종 위치를 알아야 할 때 씁니다.
+    func restingCardFrame(
+        atEdge edge: EdgeHoverMonitor.HorizontalEdge,
+        on screen: NSScreen,
+        cursorHeight: CGFloat,
+        revealedWidth: CGFloat
+    ) -> NSRect {
+        NSRect(
+            origin: cardOrigin(atEdge: edge, on: screen, cursorHeight: cursorHeight, revealedWidth: revealedWidth),
+            size: NSSize(width: Self.contentWidth, height: Self.contentHeight)
+        )
+    }
+
+    private func cardOrigin(
+        atEdge edge: EdgeHoverMonitor.HorizontalEdge,
+        on screen: NSScreen,
+        cursorHeight: CGFloat,
+        revealedWidth: CGFloat
+    ) -> NSPoint {
         let visible = screen.visibleFrame
-        let inset: CGFloat = 8
 
         let x = switch edge {
-        case .left: visible.minX + inset
-        case .right: visible.maxX - Self.contentWidth - inset
+        case .left: visible.minX - Self.contentWidth + revealedWidth
+        case .right: visible.maxX - revealedWidth
         }
 
         var y = cursorHeight - Self.contentHeight / 2
-        y = min(max(y, visible.minY + inset), visible.maxY - Self.contentHeight - inset)
+        y = min(max(y, visible.minY + Self.edgeInset), visible.maxY - Self.contentHeight - Self.edgeInset)
 
-        setCardOrigin(NSPoint(x: x, y: y))
+        return NSPoint(x: x, y: y)
     }
 }

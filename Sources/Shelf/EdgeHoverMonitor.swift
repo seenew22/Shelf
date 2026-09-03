@@ -17,13 +17,12 @@ final class EdgeHoverMonitor {
     /// 화면 끝에서 이 거리 안쪽까지를 가장자리로 봅니다.
     static let edgeThickness: CGFloat = 2
 
-    /// 손잡이를 내밀기까지 가장자리에 머물러야 하는 시간입니다.
-    /// 손잡이는 방해가 되지 않으므로 창을 여는 것보다 문턱을 훨씬 낮게 두었습니다.
-    static let peekDwellDuration: TimeInterval = 0.08
+    /// 선반 가장자리를 내밀기까지 화면 끝에 머물러야 하는 시간입니다.
+    /// Dock 이 화면을 옮겨 올 때처럼, 뜻이 있었다는 것은 알 수 있으면서 답답하지는 않은 정도입니다.
+    static let peekDwellDuration: TimeInterval = 0.15
 
-    /// 손잡이가 나온 뒤, 안쪽으로 이만큼 끌어당기면 선반을 펼칩니다.
-    /// 손잡이 폭을 확실히 지나칠 만큼으로 잡아서, 스쳐 지나가다 열리는 일이 없게 합니다.
-    static let pullThreshold: CGFloat = 34
+    /// 내밀어 둔 선반을 안쪽으로 이만큼 잡아당기면 완전히 꺼냅니다.
+    static let pullCommitDistance: CGFloat = 64
 
     /// 끌어당기지 않고 가장자리에 계속 머물기만 해도, 이 시간이 지나면 선반을 펼칩니다.
     /// 1초 가까이 화면 끝에 마우스를 붙여 두는 일은 실수로 일어나지 않기 때문에,
@@ -43,20 +42,24 @@ final class EdgeHoverMonitor {
     /// 마우스 위치를 확인하는 주기입니다.
     static let pollInterval: TimeInterval = 0.04
 
-    /// 창이 열린 뒤, 마우스가 창에서 이만큼 벗어나면 다시 닫습니다.
-    static let releaseMargin: CGFloat = 48
+    /// 창이 열린 뒤, 마우스가 창에서 이만큼 벗어나면 치울 준비를 합니다.
+    static let releaseMargin: CGFloat = 100
 
-    /// 가장자리에 잠깐 머물렀을 때 호출됩니다. 손잡이를 내밀 자리를 함께 넘깁니다.
-    var onPeek: ((HorizontalEdge, NSScreen, CGFloat) -> Void)?
+    /// 그만큼 벗어난 상태가 이 시간 동안 이어져야 창을 치웁니다.
+    /// 잠깐 스쳐 벗어났다고 곧바로 사라지면 꺼내 놓은 물건이 도망가는 것처럼 느껴집니다.
+    static let releaseDelay: TimeInterval = 0.8
 
-    /// 끌어당기는 동안 진행 정도를 알려 줍니다. 0이면 그대로, 1이면 열리기 직전입니다.
-    var onPullProgress: ((CGFloat) -> Void)?
+    /// 가장자리에 잠깐 머물렀을 때 호출됩니다. 선반을 내밀 자리를 함께 넘깁니다.
+    var onPeekBegan: ((HorizontalEdge, NSScreen, CGFloat) -> Void)?
 
-    /// 손잡이를 거두어야 할 때 호출됩니다.
+    /// 잡아당기는 동안, 화면 끝에서 안쪽으로 들어온 거리를 계속 알려 줍니다.
+    var onPullChanged: ((CGFloat) -> Void)?
+
+    /// 내밀어 둔 선반을 도로 집어넣어야 할 때 호출됩니다.
     var onPeekCancelled: (() -> Void)?
 
-    /// 손잡이를 안쪽으로 끌어당겼을 때 호출됩니다. 선반을 펼칠 자리를 함께 넘깁니다.
-    var onPull: ((HorizontalEdge, NSScreen, CGFloat) -> Void)?
+    /// 선반을 완전히 꺼내야 할 때 호출됩니다.
+    var onCommit: ((HorizontalEdge, NSScreen, CGFloat) -> Void)?
 
     /// 창이 열린 상태에서 마우스가 충분히 멀어졌을 때 호출됩니다.
     var onPointerLeft: (() -> Void)?
@@ -72,7 +75,7 @@ final class EdgeHoverMonitor {
         case away
         /// 가장자리에 닿아 머무는 중입니다.
         case dwelling(edge: HorizontalEdge, screen: NSScreen, since: Date)
-        /// 손잡이가 나와 있고, 끌어당기거나 계속 머물기를 기다립니다.
+        /// 선반 가장자리가 나와 있고, 잡아당기거나 계속 머물기를 기다립니다.
         case peeking(edge: HorizontalEdge, screen: NSScreen, anchorHeight: CGFloat, since: Date)
         /// 방금 선반을 열었거나 닫았습니다. 가장자리를 벗어나기 전까지는 다시 반응하지 않습니다.
         case settling
@@ -88,6 +91,9 @@ final class EdgeHoverMonitor {
     /// 가장자리로 열린 창의 위치입니다. 이 경우에만 마우스가 멀어졌을 때 스스로 닫습니다.
     /// 단축키나 메뉴 바 아이콘으로 연 창은 마우스와 무관하게 그대로 두어야 하므로 nil입니다.
     private var autoCloseFrame: NSRect?
+
+    /// 마우스가 창에서 멀어진 시각입니다. 충분히 오래 멀어져 있어야 창을 치웁니다.
+    private var pointerAwaySince: Date?
 
     func update(side newSide: EdgeHoverSide) {
         side = newSide
@@ -105,6 +111,7 @@ final class EdgeHoverMonitor {
     func panelDidChangeVisibility(isVisible: Bool, autoCloseFrame: NSRect?) {
         self.isPanelVisible = isVisible
         self.autoCloseFrame = isVisible ? autoCloseFrame : nil
+        pointerAwaySince = nil
         // 창이 닫힌 직후에 마우스가 아직 가장자리에 있다면 곧바로 다시 열리지 않도록 합니다.
         stage = .settling
     }
@@ -164,23 +171,22 @@ final class EdgeHoverMonitor {
             }
             guard Date().timeIntervalSince(since) >= Self.peekDwellDuration else { return }
             stage = .peeking(edge: edge, screen: screen, anchorHeight: location.y, since: since)
-            onPeek?(edge, screen, location.y)
+            onPeekBegan?(edge, screen, location.y)
 
         case .peeking(let edge, let screen, let anchorHeight, let since):
             // 끌어당기지 않아도 충분히 오래 머물렀다면 그대로 펼칩니다.
             if Date().timeIntervalSince(since) >= Self.holdToOpenDuration,
                self.edge(at: location) != nil {
-                open(edge: edge, screen: screen, at: anchorHeight)
+                commit(edge: edge, screen: screen, at: anchorHeight)
                 return
             }
             evaluatePull(at: location, edge: edge, screen: screen, anchorHeight: anchorHeight)
         }
     }
 
-    private func open(edge: HorizontalEdge, screen: NSScreen, at height: CGFloat) {
+    private func commit(edge: HorizontalEdge, screen: NSScreen, at height: CGFloat) {
         stage = .settling
-        onPeekCancelled?()
-        onPull?(edge, screen, height)
+        onCommit?(edge, screen, height)
     }
 
     /// 손잡이가 나와 있는 동안, 안쪽으로 끌어당겼는지 판단합니다.
@@ -204,11 +210,11 @@ final class EdgeHoverMonitor {
         case .right: screen.frame.maxX - location.x
         }
 
-        // 끌어당긴 만큼 손잡이가 늘어나도록 진행 정도를 계속 알려 줍니다.
-        onPullProgress?(inwardDistance / Self.pullThreshold)
+        // 잡아당긴 만큼 선반이 따라 나오도록 거리를 계속 알려 줍니다.
+        onPullChanged?(inwardDistance)
 
-        guard inwardDistance >= Self.pullThreshold else { return }
-        open(edge: edge, screen: screen, at: anchorHeight)
+        guard inwardDistance >= Self.pullCommitDistance else { return }
+        commit(edge: edge, screen: screen, at: anchorHeight)
     }
 
     private func cancelPeekIfNeeded() {
@@ -263,9 +269,24 @@ final class EdgeHoverMonitor {
     /// 항목을 끌고 있는 중에는 닫지 않습니다. 드래그로 다른 앱에 떨구려면 마우스가
     /// 창 밖으로 나가는 것이 당연하기 때문입니다.
     private func checkWhetherPointerLeft(_ location: NSPoint, panelFrame: NSRect) {
-        guard NSEvent.pressedMouseButtons == 0 else { return }
+        guard NSEvent.pressedMouseButtons == 0 else {
+            pointerAwaySince = nil
+            return
+        }
+
         let forgivingFrame = panelFrame.insetBy(dx: -Self.releaseMargin, dy: -Self.releaseMargin)
-        guard !forgivingFrame.contains(location) else { return }
+        guard !forgivingFrame.contains(location) else {
+            pointerAwaySince = nil
+            return
+        }
+
+        guard let awaySince = pointerAwaySince else {
+            pointerAwaySince = Date()
+            return
+        }
+        guard Date().timeIntervalSince(awaySince) >= Self.releaseDelay else { return }
+
+        pointerAwaySince = nil
         onPointerLeft?()
     }
 }
