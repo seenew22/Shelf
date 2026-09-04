@@ -92,8 +92,11 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   against a screen edge for half a second by accident. Only the middle half of each
   edge is live: the top of the left edge is where browsers put back buttons and
   sidebars and the cursor goes there constantly, while the corners are where people
-  park the mouse and where macOS puts Hot Corners. A held mouse button suppresses
-  the whole thing, since that means a window is being dragged to the edge.
+  park the mouse and where macOS puts Hot Corners. A held mouse button normally suppresses the whole thing, since that means a window
+  is being dragged to the edge - but `EdgeOpenMode.drag` lets the user require a
+  press-and-pull instead, and that stays distinguishable from window tiling by only
+  honouring a press that *began* at the edge. A window drag begins on a title bar
+  and merely arrives there.
 - **`PanelAnimationStyle`** — six named recipes chosen in the settings menu. A recipe
   is the collapsed scale per opening direction plus one `Animation` for each of size,
   corner radius and opacity, and a `Flourish` describing the gesture on arrival: tilt,

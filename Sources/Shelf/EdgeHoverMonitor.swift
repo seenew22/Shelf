@@ -84,6 +84,14 @@ final class EdgeHoverMonitor {
     }
 
     private var side: EdgeHoverSide = .off
+    private var openMode: EdgeOpenMode = .push
+
+    /// 가장자리에 닿아 있는 동안 마우스 버튼을 누르기 시작했는지 여부입니다.
+    ///
+    /// 끌어서 여는 방식에서 이 값이 필요합니다. 창을 화면 끝에 붙여 정렬하려고 끌고 오는
+    /// 경우와 구별하기 위한 것으로, 그때는 제목 표시줄에서 이미 누른 채로 들어오므로
+    /// 가장자리에서 누르기 시작한 것이 아닙니다.
+    private var pressBeganAtEdge = false
     private var timer: Timer?
     private var stage: Stage = .away
 
@@ -96,6 +104,11 @@ final class EdgeHoverMonitor {
 
     /// 마우스가 창에서 멀어진 시각입니다. 충분히 오래 멀어져 있어야 창을 치웁니다.
     private var pointerAwaySince: Date?
+
+    func update(mode: EdgeOpenMode) {
+        openMode = mode
+        pressBeganAtEdge = false
+    }
 
     func update(side newSide: EdgeHoverSide) {
         side = newSide
@@ -140,12 +153,22 @@ final class EdgeHoverMonitor {
 
     private func check() {
         let location = NSEvent.mouseLocation
+        let isPressed = NSEvent.pressedMouseButtons != 0
 
-        // 창을 끌어다 화면 끝에 붙이는 중이라면 선반이 끼어들지 않아야 합니다.
-        if NSEvent.pressedMouseButtons != 0, !isPanelVisible {
-            cancelPeekIfNeeded()
-            stage = .away
-            return
+        if !isPanelVisible {
+            // 가장자리에 닿아 있는 동안 누르기 시작했는지를 기록해 둡니다.
+            if !isPressed {
+                pressBeganAtEdge = false
+            } else if !pressBeganAtEdge, isAtEdgeStage {
+                pressBeganAtEdge = true
+            }
+
+            // 여기서 시작한 누름이 아니라면, 창을 화면 끝에 붙이려는 동작으로 보고 비켜 줍니다.
+            if isPressed, !pressBeganAtEdge {
+                cancelPeekIfNeeded()
+                stage = .away
+                return
+            }
         }
 
         if isPanelVisible {
@@ -176,18 +199,39 @@ final class EdgeHoverMonitor {
             onPeekBegan?(edge, screen, location.y)
 
         case .peeking(let edge, let screen, let anchorHeight, let since):
-            // 끌어당기지 않아도 충분히 오래 머물렀다면 그대로 펼칩니다.
-            if Date().timeIntervalSince(since) >= Self.holdToOpenDuration,
+            // 끌어서 여는 방식에서는 누른 채로 당기는 동안에만 반응합니다.
+            if openMode == .drag, !isPressed {
+                // 누르지 않은 채 가장자리를 벗어나면 내밀어 둔 것을 거둡니다.
+                if self.edge(at: location) == nil {
+                    cancelPeekIfNeeded()
+                    stage = .away
+                }
+                return
+            }
+
+            // 밀어서 여는 방식에서는 당기지 않아도 충분히 오래 머물렀으면 그대로 펼칩니다.
+            if openMode == .push,
+               Date().timeIntervalSince(since) >= Self.holdToOpenDuration,
                self.edge(at: location) != nil {
                 commit(edge: edge, screen: screen, at: anchorHeight)
                 return
             }
+
             evaluatePull(at: location, edge: edge, screen: screen, anchorHeight: anchorHeight)
+        }
+    }
+
+    /// 지금 가장자리에 닿아 있는 단계인지 여부입니다.
+    private var isAtEdgeStage: Bool {
+        switch stage {
+        case .dwelling, .peeking: true
+        case .away, .settling: false
         }
     }
 
     private func commit(edge: HorizontalEdge, screen: NSScreen, at height: CGFloat) {
         stage = .settling
+        pressBeganAtEdge = false
         onCommit?(edge, screen, height)
     }
 

@@ -22,6 +22,23 @@ enum EdgeHoverSide: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// 화면 가장자리에서 선반을 꺼내는 방법입니다.
+enum EdgeOpenMode: String, CaseIterable, Identifiable, Sendable {
+    /// 버튼을 누르지 않고 밀거나, 그대로 대고 있으면 열립니다.
+    case push
+    /// 가장자리를 누른 채 안쪽으로 끌어야 열립니다.
+    case drag
+
+    var id: String { rawValue }
+
+    var stringKey: StringKey {
+        switch self {
+        case .push: .edgeModePush
+        case .drag: .edgeModeDrag
+        }
+    }
+}
+
 /// 창이 나타날 때의 움직임 종류입니다.
 enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
     /// 작은 방울이 부풀어 오르듯 모서리가 펴지면서 커집니다.
@@ -261,6 +278,7 @@ final class Preferences: ObservableObject {
 
     private static let edgeHoverKey = "edgeHoverSide"
     private static let animationStyleKey = "panelAnimationStyle"
+    private static let edgeOpenModeKey = "edgeOpenMode"
 
     /// 기본값은 사용 안 함입니다. 화면 끝을 스치기만 해도 창이 뜨면 거슬릴 수 있어서,
     /// 원하시는 분이 직접 켜도록 두었습니다.
@@ -279,8 +297,21 @@ final class Preferences: ObservableObject {
         }
     }
 
+    /// 가장자리에서 꺼내는 방법입니다. 기본값은 밀어서 여는 쪽입니다.
+    ///
+    /// 끌어서 여는 쪽이 오작동은 확실히 없지만 매번 버튼을 눌러야 하므로,
+    /// 가볍게 쓰는 기본값으로는 미는 쪽이 낫다고 보았습니다.
+    @Published var edgeOpenMode: EdgeOpenMode {
+        didSet {
+            guard edgeOpenMode != oldValue else { return }
+            UserDefaults.standard.set(edgeOpenMode.rawValue, forKey: Self.edgeOpenModeKey)
+            onEdgeOpenModeChanged?(edgeOpenMode)
+        }
+    }
+
     /// 설정이 바뀌었을 때 감시자를 켜거나 끄기 위해 앱 쪽에서 연결해 둡니다.
     var onEdgeHoverSideChanged: ((EdgeHoverSide) -> Void)?
+    var onEdgeOpenModeChanged: ((EdgeOpenMode) -> Void)?
 
     init() {
         let storedSide = UserDefaults.standard.string(forKey: Self.edgeHoverKey)
@@ -288,5 +319,8 @@ final class Preferences: ObservableObject {
 
         let storedStyle = UserDefaults.standard.string(forKey: Self.animationStyleKey)
         panelAnimationStyle = storedStyle.flatMap(PanelAnimationStyle.init(rawValue:)) ?? .droplet
+
+        let storedMode = UserDefaults.standard.string(forKey: Self.edgeOpenModeKey)
+        edgeOpenMode = storedMode.flatMap(EdgeOpenMode.init(rawValue:)) ?? .push
     }
 }

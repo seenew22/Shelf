@@ -276,6 +276,14 @@ struct HistoryView: View {
             }
             .pickerStyle(.inline)
 
+            Picker(l10n[.menuEdgeOpenMode], selection: $preferences.edgeOpenMode) {
+                ForEach(EdgeOpenMode.allCases) { mode in
+                    Text(l10n[mode.stringKey]).tag(mode)
+                }
+            }
+            .pickerStyle(.inline)
+            .disabled(preferences.edgeHoverSide == .off)
+
             Picker(l10n[.menuAnimation], selection: $preferences.panelAnimationStyle) {
                 ForEach(PanelAnimationStyle.allCases) { style in
                     Text(l10n[style.stringKey]).tag(style)

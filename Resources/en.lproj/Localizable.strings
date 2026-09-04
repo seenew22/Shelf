@@ -36,3 +36,6 @@
 "animation.bounce" = "Bounce";
 "animation.rubber" = "Rubber";
 "animation.unfold" = "Unfold";
+"menu.edgeOpenMode" = "Opening from the edge";
+"edgeMode.push" = "Push open";
+"edgeMode.drag" = "Drag open";

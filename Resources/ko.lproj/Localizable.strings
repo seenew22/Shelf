@@ -36,3 +36,6 @@
 "animation.bounce" = "통통";
 "animation.rubber" = "고무줄";
 "animation.unfold" = "종이";
+"menu.edgeOpenMode" = "가장자리에서 여는 방법";
+"edgeMode.push" = "밀어서 열기";
+"edgeMode.drag" = "끌어서 열기";

@@ -131,6 +131,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         preferences.onEdgeHoverSideChanged = { [weak self] side in
             self?.edgeHoverMonitor.update(side: side)
         }
+        preferences.onEdgeOpenModeChanged = { [weak self] mode in
+            self?.edgeHoverMonitor.update(mode: mode)
+        }
+        edgeHoverMonitor.update(mode: preferences.edgeOpenMode)
         edgeHoverMonitor.update(side: preferences.edgeHoverSide)
     }
 
