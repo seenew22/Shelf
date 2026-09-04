@@ -129,6 +129,14 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   notification, so polling changeCount is the standard, correct approach. When the
   count changes, read the current pasteboard, classify the type, apply privacy rules,
   dedupe, and prepend to the store.
+- **Dropping onto the panel** — `HistoryView` accepts file URLs, PNG/TIFF and plain
+  text dropped on the card, so things can be collected without going through the
+  clipboard. One provider usually advertises several types at once, so the handler
+  takes the most specific match and stops; checking them all files the same thing
+  twice. Dropping requires the panel to already be open: edge detection deliberately
+  ignores everything while a mouse button is held, which is what makes dragging a
+  window to the screen edge safe, and telling that apart from dragging a file there
+  needs a separate mechanism.
 - **`ClipboardItem`** — model: stable `id`, `kind` (`.text` / `.image` / `.file`),
   text payload, blob path, original path, `timestamp`, preview, a content
   fingerprint used for dedupe, `isPinned`, and which app was frontmost at capture. It decodes by hand rather than by

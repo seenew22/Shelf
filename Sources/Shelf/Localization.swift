@@ -46,6 +46,7 @@ enum StringKey: String {
     case headerOpenFinder = "header.openFinder"
     case searchPlaceholder = "search.placeholder"
     case searchEmpty = "search.empty"
+    case dropHint = "drop.hint"
     case rowJustNow = "row.justNow"
     case rowCopied = "row.copied"
     case rowImage = "row.image"

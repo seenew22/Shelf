@@ -35,6 +35,9 @@ struct HistoryView: View {
     /// 창을 열면 곧바로 타이핑해서 찾을 수 있도록 검색란에 초점을 둡니다.
     @FocusState private var isSearchFocused: Bool
 
+    /// 무언가를 끌어다 창 위에 올려 두고 있는 중인지 여부입니다.
+    @State private var isDropTargeted = false
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -59,8 +62,14 @@ struct HistoryView: View {
         .background(.regularMaterial)
         .clipShape(cardShape)
         .overlay {
-            cardShape.strokeBorder(Color.primary.opacity(0.18), lineWidth: 1)
+            cardShape.strokeBorder(
+                isDropTargeted ? Color.accentColor : Color.primary.opacity(0.18),
+                lineWidth: isDropTargeted ? 2 : 1
+            )
         }
+        .overlay { dropHint }
+        .onDrop(of: Self.acceptedDropTypes, isTargeted: $isDropTargeted, perform: acceptDrop)
+        .animation(.easeOut(duration: 0.12), value: isDropTargeted)
         // 그림자도 카드와 함께 자라야 하므로 창이 아니라 여기서 그립니다.
         // 넓게 번지는 그림자만으로는 윤곽이 흐려서, 가까이 붙는 그림자를 한 겹 더 둡니다.
         .shadow(color: .black.opacity(0.45), radius: 22, y: 10)
@@ -151,6 +160,80 @@ struct HistoryView: View {
         .padding(.vertical, 7)
     }
 
+    /// 무언가를 끌어와 올려 두었을 때 보여 주는 안내입니다.
+    @ViewBuilder
+    private var dropHint: some View {
+        if isDropTargeted {
+            VStack(spacing: 8) {
+                Image(systemName: "tray.and.arrow.down.fill")
+                    .font(.system(size: 30))
+                Text(l10n[.dropHint])
+                    .font(.callout)
+            }
+            .foregroundStyle(Color.accentColor)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.regularMaterial)
+            .transition(.opacity)
+        }
+    }
+
+    // 복사해서 들어오는 것과 같은 종류를 받습니다.
+    private static let acceptedDropTypes: [UTType] = [.fileURL, .png, .tiff, .utf8PlainText]
+
+    /// 끌어다 놓은 것을 히스토리에 담습니다.
+    ///
+    /// 하나의 꾸러미가 여러 형태를 함께 담고 있는 경우가 많으므로, 가장 구체적인 것부터
+    /// 확인해서 하나만 받아들입니다. 그러지 않으면 같은 것이 파일과 글자로 두 번 들어옵니다.
+    private func acceptDrop(_ providers: [NSItemProvider]) -> Bool {
+        var accepted = false
+
+        for provider in providers {
+            if provider.canLoadObject(ofClass: URL.self) {
+                accepted = true
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    guard let url, url.isFileURL else { return }
+                    Task { @MainActor in store.insert(.file(url)) }
+                }
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.png.identifier) {
+                accepted = true
+                loadImage(from: provider, typeIdentifier: UTType.png.identifier, convert: false)
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.tiff.identifier) {
+                accepted = true
+                loadImage(from: provider, typeIdentifier: UTType.tiff.identifier, convert: true)
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.utf8PlainText.identifier) {
+                accepted = true
+                provider.loadDataRepresentation(forTypeIdentifier: UTType.utf8PlainText.identifier) { data, _ in
+                    guard let data, let text = String(data: data, encoding: .utf8),
+                          !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    else {
+                        return
+                    }
+                    Task { @MainActor in store.insert(.text(text)) }
+                }
+            }
+        }
+
+        return accepted
+    }
+
+    /// 이미지를 받아서 PNG 로 통일해 담습니다.
+    /// 저장과 드래그를 모두 같은 방식으로 처리하기 위한 것입니다.
+    private func loadImage(from provider: NSItemProvider, typeIdentifier: String, convert: Bool) {
+        provider.loadDataRepresentation(forTypeIdentifier: typeIdentifier) { data, _ in
+            guard let data else { return }
+
+            let pngData: Data?
+            if convert {
+                pngData = NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:])
+            } else {
+                pngData = data
+            }
+
+            guard let pngData else { return }
+            Task { @MainActor in store.insert(.image(data: pngData, fileExtension: "png")) }
+        }
+    }
+
     private var noMatchesState: some View {
         VStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
@@ -220,6 +303,9 @@ struct HistoryView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
             Text(l10n[.emptySubtitle])
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+            Text(l10n[.dropHint])
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }

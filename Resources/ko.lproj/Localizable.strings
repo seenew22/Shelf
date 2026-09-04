@@ -30,3 +30,4 @@
 "header.openFinder" = "Finder 열기";
 "search.placeholder" = "검색";
 "search.empty" = "찾는 항목이 없습니다";
+"drop.hint" = "여기에 놓으면 선반에 담깁니다";

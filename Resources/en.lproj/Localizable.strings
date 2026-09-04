@@ -30,3 +30,4 @@
 "header.openFinder" = "Open Finder";
 "search.placeholder" = "Search";
 "search.empty" = "Nothing matches";
+"drop.hint" = "Drop here to keep it on the shelf";
