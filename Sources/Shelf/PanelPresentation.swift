@@ -126,11 +126,24 @@ final class PanelPresentation: ObservableObject {
     /// 고른 방식에 맞는 몸짓으로 물러납니다.
     func collapse(with style: PanelAnimationStyle) {
         let departure = style.departure
-        collapseDuration = departure.duration
+        let flourish = style.flourish
+
+        // 투명해지는 것을 조금 늦추기 때문에, 창을 실제로 내리는 시점도 그만큼 미뤄야 합니다.
+        let fadeDelay = departure.duration * 0.35
+        collapseDuration = departure.duration + fadeDelay
 
         withAnimation(departure.animation) {
-            applyCollapsedState()
+            // 들어올 때와 반대로 눌립니다. 옆으로 퍼지며 들어왔다면 좁아지며 나가고,
+            // 세로로 늘어나며 들어왔다면 납작해지며 나갑니다.
+            scaleX = collapsedState.scale.width * flourish.squash.height
+            scaleY = collapsedState.scale.height * flourish.squash.width
+            cornerRadius = collapsedState.cornerRadius
+            blurRadius = collapsedState.blurRadius
             rotation = .degrees(departure.tiltDegrees)
+        }
+        // 크기와 같은 속도로 투명해지면 몸짓이 보이기 전에 사라져 버립니다.
+        withAnimation(.easeIn(duration: departure.duration).delay(fadeDelay)) {
+            opacity = 0
         }
     }
 

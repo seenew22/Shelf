@@ -51,11 +51,11 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
     var flourish: Flourish {
         switch self {
         // 젤리처럼 옆으로 퍼졌다가 되돌아옵니다.
-        case .droplet: Flourish(tiltDegrees: 0, squash: CGSize(width: 1.10, height: 0.90), rowStagger: 0.022)
+        case .droplet: Flourish(tiltDegrees: 0, squash: CGSize(width: 1.18, height: 0.84), rowStagger: 0.022)
         // 서랍이 끝까지 밀려 들어가 멈추듯, 군더더기 없이 섭니다.
         case .drawer: Flourish(tiltDegrees: 0, squash: CGSize(width: 1.0, height: 1.0), rowStagger: 0)
         // 비스듬히 튀어나왔다가 바로 서면서 세로로 늘어납니다.
-        case .pop: Flourish(tiltDegrees: -6, squash: CGSize(width: 0.88, height: 1.14), rowStagger: 0.04)
+        case .pop: Flourish(tiltDegrees: -9, squash: CGSize(width: 0.80, height: 1.22), rowStagger: 0.04)
         // 아무 몸짓도 하지 않습니다.
         case .calm: Flourish(tiltDegrees: 0, squash: CGSize(width: 1.0, height: 1.0), rowStagger: 0)
         }
@@ -77,9 +77,9 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
     /// 오른쪽으로 기울면서 물러나야, 한 번 왔다가 되돌아간 것처럼 보입니다.
     var departure: (tiltDegrees: Double, animation: Animation, duration: TimeInterval) {
         switch self {
-        case .droplet: (0, .spring(duration: 0.26, bounce: 0.25), 0.26)
+        case .droplet: (0, .spring(duration: 0.28, bounce: 0.35), 0.28)
         case .drawer: (0, .easeIn(duration: 0.20), 0.20)
-        case .pop: (9, .spring(duration: 0.22, bounce: 0.35), 0.22)
+        case .pop: (13, .spring(duration: 0.24, bounce: 0.45), 0.24)
         case .calm: (0, .easeOut(duration: 0.14), 0.14)
         }
     }
@@ -87,9 +87,9 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
     /// 도착한 뒤 제자리를 찾아가는 움직임입니다.
     var settle: Animation {
         switch self {
-        case .droplet: .spring(duration: 0.52, bounce: 0.48)
+        case .droplet: .spring(duration: 0.54, bounce: 0.55)
         case .drawer: .spring(duration: 0.30, bounce: 0.12)
-        case .pop: .spring(duration: 0.46, bounce: 0.62)
+        case .pop: .spring(duration: 0.48, bounce: 0.72)
         case .calm: .easeOut(duration: 0.18)
         }
     }
@@ -122,6 +122,20 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .drawer: (0.34, (0.30, 0.00, 0.30, 1))
         case .pop: (0.18, (0.16, 1.90, 0.40, 1))
         case .calm: (0.36, (0.33, 0.00, 0.40, 1))
+        }
+    }
+
+    /// 가장자리에서 꺼냈던 선반이 도로 들어가는 움직임입니다.
+    ///
+    /// 제어점의 두 번째 값을 음수로 두면, 들어가기 직전에 바깥쪽으로 살짝 부풀었다가
+    /// 빨려 들어갑니다. 몸을 웅크렸다 튀어나가는 것과 같은 원리로, 되돌아가는 동작에
+    /// 힘이 실려 보입니다.
+    var edgeDeparture: (duration: TimeInterval, controlPoints: (Float, Float, Float, Float)) {
+        switch self {
+        case .droplet: (0.34, (0.55, -0.42, 0.72, 1))
+        case .drawer: (0.26, (0.40, 0.00, 0.70, 1))
+        case .pop: (0.24, (0.72, -0.75, 0.78, 1))
+        case .calm: (0.20, (0.40, 0.00, 0.60, 1))
         }
     }
 

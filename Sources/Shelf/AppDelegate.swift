@@ -39,6 +39,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 화면 밖의 선반을 잡아 빼는 중일 때의 상태입니다.
     private var edgeDrag: EdgeDrag?
 
+    /// 가장자리에서 꺼낸 창이라면 그 자리를 기억해 둡니다.
+    /// 닫을 때 같은 자리로 되돌아가게 하기 위한 것입니다.
+    private var edgeOrigin: EdgeDrag?
+
     /// 화면 밖에서 잡아 빼고 있는 선반의 위치 정보입니다.
     private struct EdgeDrag {
         var edge: EdgeHoverMonitor.HorizontalEdge
@@ -177,6 +181,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hideTask?.cancel()
         hideTask = nil
         edgeDrag = nil
+        edgeOrigin = nil
         panel.orderFrontRegardless()
         panel.makeKey()
         isPanelPresented = true
@@ -281,6 +286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let panel else { return }
 
         edgeDrag = nil
+        edgeOrigin = EdgeDrag(edge: edge, screen: screen, cursorHeight: cursorHeight)
         hideTask?.cancel()
         hideTask = nil
         pendingCloseTask?.cancel()
@@ -331,11 +337,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pendingCloseTask = nil
 
         // 먼저 물러나는 움직임을 시작하고, 다 물러난 다음에 창을 실제로 감춥니다.
-        presentation.collapse(with: preferences.panelAnimationStyle)
-        let collapseDuration = presentation.collapseDuration
+        let style = preferences.panelAnimationStyle
+        presentation.collapse(with: style)
+        var waitDuration = presentation.collapseDuration
+
+        // 가장자리에서 꺼낸 창은 왔던 자리로 되돌아가면서 사라집니다.
+        // 제자리에서 작아지기만 하면, 어디서 나왔던 것인지가 사라지는 순간에 지워집니다.
+        if let edgeOrigin, let panel {
+            let departure = style.edgeDeparture
+            panel.animate(
+                toRevealedWidth: 1,
+                atEdge: edgeOrigin.edge,
+                on: edgeOrigin.screen,
+                cursorHeight: edgeOrigin.cursorHeight,
+                duration: departure.duration,
+                timing: CAMediaTimingFunction(
+                    controlPoints: departure.controlPoints.0, departure.controlPoints.1,
+                    departure.controlPoints.2, departure.controlPoints.3
+                )
+            )
+            waitDuration = max(waitDuration, departure.duration)
+        }
+        edgeOrigin = nil
+
         hideTask?.cancel()
         hideTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(collapseDuration + 0.02))
+            try? await Task.sleep(for: .seconds(waitDuration + 0.02))
             guard !Task.isCancelled else { return }
             self?.panel?.orderOut(nil)
         }
@@ -371,8 +398,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 드래그 동작은 여기에 걸리지 않습니다. 덕분에 항목을 끌어내는 동안 창이 유지됩니다.
     private func startEventMonitors() {
         if outsideClickMonitor == nil {
+            // 누르는 순간이 아니라 떼는 순간을 봅니다.
+            // 다른 앱에서 파일을 집어 이 창으로 끌어오는 동작도 바깥을 누르는 것으로 시작하는데,
+            // 누르자마자 닫아 버리면 끌어다 놓을 창이 사라져 버립니다.
+            // 떼는 순간을 보면, 창 위에서 놓은 경우와 바깥에서 놓은 경우를 구별할 수 있습니다.
             outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
-                matching: [.leftMouseDown, .rightMouseDown]
+                matching: [.leftMouseUp, .rightMouseUp]
             ) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self, !self.shouldKeepPanelOpen(forClickAt: NSEvent.mouseLocation) else { return }
