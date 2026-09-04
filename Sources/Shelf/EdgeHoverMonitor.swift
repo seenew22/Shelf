@@ -29,11 +29,13 @@ final class EdgeHoverMonitor {
     /// 끌어당기기가 번거로울 때의 다른 길로 열어 두었습니다.
     static let holdToOpenDuration: TimeInterval = 0.55
 
-    /// 화면 위아래 끝에서 이만큼은 감지하지 않습니다.
+    /// 화면 높이 중에서 감지에 쓰는 구간의 비율입니다. 세로 한가운데를 기준으로 잡습니다.
     ///
-    /// 마우스를 잠시 치워 둘 때 화면 모서리에 놓는 습관이 흔하고, macOS 의 핫코너 기능과도
-    /// 겹칩니다. 모서리를 비워 두면 그런 경우에 선반이 끼어들지 않습니다.
-    static let cornerExclusion: CGFloat = 48
+    /// 가장자리 전체를 감지하면 방해가 되는 자리가 너무 많습니다. 브라우저의 뒤로 가기
+    /// 버튼이나 사이드바처럼 화면 왼쪽 위에는 마우스가 자주 가고, 아래쪽 모서리는 마우스를
+    /// 잠시 치워 두는 자리이자 macOS 핫코너가 쓰는 자리입니다. 가운데 절반만 열어 두면
+    /// 그런 곳을 모두 비켜 가면서도 겨냥하기에는 충분히 넓습니다.
+    static let activeHeightFraction: CGFloat = 0.5
 
     /// 끌어당기는 동안 허용하는 세로 방향 흔들림입니다.
     /// 이보다 크게 벗어나면 끌어당길 뜻이 없다고 보고 손잡이를 거둡니다.
@@ -231,10 +233,9 @@ final class EdgeHoverMonitor {
         }
         let frame = screen.frame
 
-        // 화면 위아래 모서리 근처는 비워 둡니다.
-        guard location.y > frame.minY + Self.cornerExclusion,
-              location.y < frame.maxY - Self.cornerExclusion
-        else {
+        // 세로 한가운데 구간에서만 반응합니다.
+        let activeHeight = frame.height * Self.activeHeightFraction
+        guard abs(location.y - frame.midY) <= activeHeight / 2 else {
             return nil
         }
 

@@ -89,10 +89,11 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   the animator proxy is silently ignored on `NSWindow` - it neither animates nor
   moves - which is worth knowing because the failure is invisible: the window simply
   stays where it was put, and every symptom points at the positioning maths instead. Holding is safe as a second route because nobody parks a cursor
-  against a screen edge for three quarters of a second by accident - except in the
-  corners, which people do use as a parking spot and which macOS gives to Hot
-  Corners, so the top and bottom 48pt of each edge are excluded. A held mouse button
-  suppresses the whole thing, since that means a window is being dragged to the edge.
+  against a screen edge for half a second by accident. Only the middle half of each
+  edge is live: the top of the left edge is where browsers put back buttons and
+  sidebars and the cursor goes there constantly, while the corners are where people
+  park the mouse and where macOS puts Hot Corners. A held mouse button suppresses
+  the whole thing, since that means a window is being dragged to the edge.
 - **`PanelAnimationStyle`** — four named recipes (droplet, drawer, pop, calm) chosen
   in the settings menu. A recipe is just the collapsed scale per opening direction
   plus one `Animation` for each of size, corner radius and opacity. Keeping those on
