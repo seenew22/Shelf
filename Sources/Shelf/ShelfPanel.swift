@@ -168,12 +168,19 @@ final class ShelfPanel: NSPanel {
         timing: CAMediaTimingFunction
     ) {
         let origin = cardOrigin(atEdge: edge, on: screen, cursorHeight: cursorHeight, revealedWidth: revealedWidth)
-        let windowOrigin = NSPoint(x: origin.x - Self.shadowMargin, y: origin.y - Self.shadowMargin)
+        let target = NSRect(
+            x: origin.x - Self.shadowMargin,
+            y: origin.y - Self.shadowMargin,
+            width: frame.width,
+            height: frame.height
+        )
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = duration
             context.timingFunction = timing
-            animator().setFrameOrigin(windowOrigin)
+            // 창을 움직일 때는 반드시 setFrame 을 써야 합니다.
+            // animator() 를 거친 setFrameOrigin 은 NSWindow 에서 아무 일도 하지 않고 조용히 무시됩니다.
+            animator().setFrame(target, display: true)
         }
     }
 

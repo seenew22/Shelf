@@ -83,7 +83,12 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   `revealedWidth` says how much of it is in - 1pt while hidden, 30pt at rest, the
   full width once committed - so pulling literally drags the panel out and the
   commit is a spring past the resting position. Never 0pt: a window entirely off
-  every screen risks being repositioned by the system. Holding is safe as a second route because nobody parks a cursor
+  every screen risks being repositioned by the system.
+
+  Move the window with `animator().setFrame(_:display:)`. `setFrameOrigin` through
+  the animator proxy is silently ignored on `NSWindow` - it neither animates nor
+  moves - which is worth knowing because the failure is invisible: the window simply
+  stays where it was put, and every symptom points at the positioning maths instead. Holding is safe as a second route because nobody parks a cursor
   against a screen edge for three quarters of a second by accident - except in the
   corners, which people do use as a parking spot and which macOS gives to Hot
   Corners, so the top and bottom 48pt of each edge are excluded. A held mouse button
