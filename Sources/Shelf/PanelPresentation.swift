@@ -33,6 +33,15 @@ final class PanelPresentation: ObservableObject {
     /// 경첩을 축으로 접혀 있는 각도입니다. 활짝 열리면서 0 이 됩니다.
     @Published private(set) var openAngle: Angle = .zero
 
+    /// 경첩이 가로로 놓여 있는지 여부입니다. 참이면 위아래로 접혔다 펴집니다.
+    private(set) var opensAroundHorizontalAxis = false
+
+    /// 제자리에 닿은 뒤의 출렁임입니다. 없으면 출렁이지 않습니다.
+    private(set) var wobble: Wobble?
+
+    /// 출렁임의 진행도입니다. 0에서 1까지 곧게 흐르고, 실제 모양은 여기서 계산됩니다.
+    @Published private(set) var wobblePhase: Double = 1
+
     /// 목록이 얼마나 차올랐는지를 0에서 1 사이로 나타냅니다.
     /// 각 행은 자기 순서에 맞춰 이 값에서 자기 몫을 계산합니다.
     @Published private(set) var contentPhase: Double = 1
@@ -53,6 +62,8 @@ final class PanelPresentation: ObservableObject {
         collapsedState = recipe.collapsedState(for: origin)
         collapseDuration = recipe.collapseDuration
         rowStagger = flourish.rowStagger
+        opensAroundHorizontalAxis = flourish.opensAroundHorizontalAxis
+        wobble = flourish.wobble
         applyCollapsedState()
         rotation = .degrees(flourish.tiltDegrees)
         openAngle = .degrees(flourish.openDegrees)
@@ -75,6 +86,8 @@ final class PanelPresentation: ObservableObject {
         // 문이 열리듯 펼쳐지는 방식에서는 경첩이 화면 끝 쪽에 있어야 자연스럽습니다.
         anchor = flourish.openDegrees == 0 ? .center : hinge
         rowStagger = flourish.rowStagger
+        opensAroundHorizontalAxis = flourish.opensAroundHorizontalAxis
+        wobble = flourish.wobble
 
         opacity = 1
         blurRadius = 0
@@ -104,6 +117,7 @@ final class PanelPresentation: ObservableObject {
             scaleX = 1
             scaleY = 1
         }
+        startWobble()
         guard stagger > 0 else { return }
         withAnimation(.easeOut(duration: 0.5)) {
             contentPhase = 1
@@ -119,6 +133,7 @@ final class PanelPresentation: ObservableObject {
         scaleY = 1
         rotation = .zero
         openAngle = .zero
+        wobblePhase = 1
         contentPhase = 1
         opacity = 1
         cornerRadius = panelExpandedCornerRadius
@@ -179,8 +194,21 @@ final class PanelPresentation: ObservableObject {
             rotation = .zero
             openAngle = .zero
         }
+        startWobble()
         if rowStagger > 0 {
             withAnimation(.easeOut(duration: 0.5)) { contentPhase = 1 }
+        }
+    }
+
+    /// 출렁임을 처음부터 다시 흐르게 합니다.
+    ///
+    /// 진행도만 곧게 흐르고, 매 순간의 크기는 `WobbleEffect` 가 계산합니다.
+    /// 크기 자체를 애니메이션하면 여러 번 튀는 모양을 만들 수 없기 때문입니다.
+    private func startWobble() {
+        guard let wobble else { return }
+        wobblePhase = 0
+        withAnimation(.linear(duration: wobble.duration)) {
+            wobblePhase = 1
         }
     }
 
@@ -232,6 +260,9 @@ final class PanelPresentation: ObservableObject {
             case .calm: calm
             case .door: door
             case .spin: spin
+            case .bounce: bounce
+            case .rubber: rubber
+            case .unfold: unfold
             }
         }
 
@@ -307,6 +338,48 @@ final class PanelPresentation: ObservableObject {
             cornerUnwind: .spring(duration: 0.46, bounce: 0.25),
             fadeIn: .easeOut(duration: 0.16),
             collapseDuration: 0.26
+        )
+
+        /// 위에서 떨어지듯 내려와 통통 튀는 방식입니다. 튀는 몫은 출렁임이 맡습니다.
+        static let bounce = Recipe(
+            collapsedScaleAtEdge: CGSize(width: 0.55, height: 0.55),
+            collapsedScaleFromAbove: CGSize(width: 0.90, height: 0.30),
+            collapsedScaleAtCursor: CGSize(width: 0.60, height: 0.60),
+            collapsedCornerRadius: 40,
+            collapsedBlurRadius: 0,
+            horizontalGrowth: .spring(duration: 0.26, bounce: 0.15),
+            verticalGrowth: .spring(duration: 0.26, bounce: 0.15),
+            cornerUnwind: .easeOut(duration: 0.24),
+            fadeIn: .easeOut(duration: 0.12),
+            collapseDuration: 0.24
+        )
+
+        /// 납작하게 눌려 있다가 크게 출렁이며 펴지는 방식입니다.
+        static let rubber = Recipe(
+            collapsedScaleAtEdge: CGSize(width: 0.06, height: 1.10),
+            collapsedScaleFromAbove: CGSize(width: 1.10, height: 0.06),
+            collapsedScaleAtCursor: CGSize(width: 0.08, height: 1.06),
+            collapsedCornerRadius: 140,
+            collapsedBlurRadius: 2,
+            horizontalGrowth: .spring(duration: 0.30, bounce: 0.20),
+            verticalGrowth: .spring(duration: 0.30, bounce: 0.20),
+            cornerUnwind: .easeOut(duration: 0.26),
+            fadeIn: .easeOut(duration: 0.10),
+            collapseDuration: 0.28
+        )
+
+        /// 위쪽을 경첩 삼아 종이가 펼쳐지듯 내려오는 방식입니다.
+        static let unfold = Recipe(
+            collapsedScaleAtEdge: CGSize(width: 1.0, height: 1.0),
+            collapsedScaleFromAbove: CGSize(width: 1.0, height: 1.0),
+            collapsedScaleAtCursor: CGSize(width: 1.0, height: 1.0),
+            collapsedCornerRadius: panelExpandedCornerRadius,
+            collapsedBlurRadius: 0,
+            horizontalGrowth: .spring(duration: 0.44, bounce: 0.25),
+            verticalGrowth: .spring(duration: 0.44, bounce: 0.25),
+            cornerUnwind: .easeOut(duration: 0.30),
+            fadeIn: .easeOut(duration: 0.16),
+            collapseDuration: 0.22
         )
 
         /// 거의 움직이지 않고 조용히 나타나는 방식입니다.

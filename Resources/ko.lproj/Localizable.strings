@@ -33,3 +33,6 @@
 "drop.hint" = "여기에 놓으면 담아 둡니다";
 "animation.door" = "여닫이";
 "animation.spin" = "팽이";
+"animation.bounce" = "통통";
+"animation.rubber" = "고무줄";
+"animation.unfold" = "종이";

@@ -80,10 +80,12 @@ struct HistoryView: View {
         // 경첩을 축으로 열리는 방식에서만 각도가 0 이 아닙니다.
         .rotation3DEffect(
             presentation.openAngle,
-            axis: (x: 0, y: 1, z: 0),
-            anchor: presentation.anchor,
+            axis: presentation.opensAroundHorizontalAxis ? (x: 1, y: 0, z: 0) : (x: 0, y: 1, z: 0),
+            anchor: presentation.opensAroundHorizontalAxis ? .top : presentation.anchor,
             perspective: 0.55
         )
+        // 제자리에 닿은 뒤 여러 번 출렁이는 방식에서만 움직입니다.
+        .wobble(presentation.wobble, phase: presentation.wobblePhase, anchor: .center)
         .scaleEffect(
             x: presentation.scaleX,
             y: presentation.scaleY,

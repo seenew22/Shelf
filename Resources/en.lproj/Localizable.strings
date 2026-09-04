@@ -33,3 +33,6 @@
 "drop.hint" = "Drop here to keep it";
 "animation.door" = "Door";
 "animation.spin" = "Spin";
+"animation.bounce" = "Bounce";
+"animation.rubber" = "Rubber";
+"animation.unfold" = "Unfold";

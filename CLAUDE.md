@@ -99,6 +99,12 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   corner radius and opacity, and a `Flourish` describing the gesture on arrival: tilt,
   squash, hinge angle, and how much the rows stagger.
 
+  Landing more than once needs `WobbleEffect`. SwiftUI interpolates straight between
+  the start and end of an animated value, so animating scale can overshoot once and
+  no more - a ball bouncing three times cannot be expressed that way. The effect
+  animates a 0-to-1 phase instead and computes the scale from a damped cosine each
+  frame, which is what `bounce` and `rubber` are built on.
+
   Rotation costs window margin. A 340x460 card tilted 9 degrees and stretched to 1.22
   vertically pushes 68pt past its own bounds top and bottom, so `shadowMargin` has to
   exceed that or the corners are simply cut off - which is how the clipping bug

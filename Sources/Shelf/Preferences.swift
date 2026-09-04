@@ -36,6 +36,12 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
     case door
     /// 비스듬히 누운 채로 나타나 팽이처럼 돌아 섭니다.
     case spin
+    /// 바닥에 떨어진 공처럼 여러 번 통통 튀다가 멎습니다.
+    case bounce
+    /// 고무줄처럼 납작하게 눌렸다가 크게 출렁이며 펴집니다.
+    case rubber
+    /// 접혀 있던 종이가 위에서부터 아래로 펼쳐집니다.
+    case unfold
 
     var id: String { rawValue }
 
@@ -47,6 +53,9 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .calm: .animationCalm
         case .door: .animationDoor
         case .spin: .animationSpin
+        case .bounce: .animationBounce
+        case .rubber: .animationRubber
+        case .unfold: .animationUnfold
         }
     }
 
@@ -68,6 +77,31 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .door: Flourish(tiltDegrees: 0, squash: CGSize(width: 1.0, height: 1.0), rowStagger: 0.018, openDegrees: -78)
         // 크게 누운 채로 나타나 돌면서 섭니다.
         case .spin: Flourish(tiltDegrees: -24, squash: CGSize(width: 0.94, height: 0.94), rowStagger: 0.03)
+        // 닿는 순간 납작해졌다가 여러 번 통통 튀며 잦아듭니다.
+        case .bounce:
+            Flourish(
+                tiltDegrees: 0,
+                squash: CGSize(width: 1.0, height: 1.0),
+                rowStagger: 0.012,
+                wobble: Wobble(amplitude: CGSize(width: 0.10, height: -0.20), cycles: 2.6, damping: 3.4, duration: 0.75)
+            )
+        // 크게, 오래 출렁입니다.
+        case .rubber:
+            Flourish(
+                tiltDegrees: 0,
+                squash: CGSize(width: 0.30, height: 1.15),
+                rowStagger: 0.02,
+                wobble: Wobble(amplitude: CGSize(width: 0.26, height: -0.20), cycles: 3.4, damping: 2.6, duration: 0.9)
+            )
+        // 위쪽을 경첩 삼아 종이가 펼쳐지듯 내려옵니다.
+        case .unfold:
+            Flourish(
+                tiltDegrees: 0,
+                squash: CGSize(width: 1.0, height: 1.0),
+                rowStagger: 0.024,
+                openDegrees: -88,
+                opensAroundHorizontalAxis: true
+            )
         }
     }
 
@@ -81,6 +115,10 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         var rowStagger: TimeInterval
         /// 경첩을 축으로 접혀 있는 각도입니다. 0 이 아니면 문이 열리듯 펼쳐집니다.
         var openDegrees: Double = 0
+        /// 경첩이 가로로 놓여 있는지 여부입니다. 참이면 위아래로 접혔다 펴집니다.
+        var opensAroundHorizontalAxis: Bool = false
+        /// 제자리에 닿은 뒤 출렁이는 움직임입니다. 없으면 곧바로 멎습니다.
+        var wobble: Wobble?
     }
 
     /// 물러날 때의 눌린 정도입니다.
@@ -96,6 +134,9 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .calm: CGSize(width: 1.0, height: 1.0)
         case .door: CGSize(width: 1.0, height: 1.0)
         case .spin: CGSize(width: 0.90, height: 0.90)
+        case .bounce: CGSize(width: 1.06, height: 0.86)
+        case .rubber: CGSize(width: 0.24, height: 1.10)
+        case .unfold: CGSize(width: 1.0, height: 1.0)
         }
     }
 
@@ -111,6 +152,9 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .calm: (0, .easeOut(duration: 0.14), 0.14)
         case .door: (0, .easeIn(duration: 0.22), 0.22)
         case .spin: (26, .spring(duration: 0.26, bounce: 0.4), 0.26)
+        case .bounce: (0, .spring(duration: 0.24, bounce: 0.4), 0.24)
+        case .rubber: (0, .spring(duration: 0.28, bounce: 0.5), 0.28)
+        case .unfold: (0, .easeIn(duration: 0.22), 0.22)
         }
     }
 
@@ -123,6 +167,9 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .calm: .easeOut(duration: 0.18)
         case .door: .spring(duration: 0.50, bounce: 0.32)
         case .spin: .spring(duration: 0.56, bounce: 0.52)
+        case .bounce: .spring(duration: 0.34, bounce: 0.18)
+        case .rubber: .spring(duration: 0.40, bounce: 0.30)
+        case .unfold: .spring(duration: 0.52, bounce: 0.30)
         }
     }
 
@@ -135,6 +182,9 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .calm: 22
         case .door: 26
         case .spin: 28
+        case .bounce: 30
+        case .rubber: 20
+        case .unfold: 28
         }
     }
 
@@ -148,6 +198,9 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .calm: 1.3
         case .door: 2.0
         case .spin: 2.6
+        case .bounce: 2.6
+        case .rubber: 3.0
+        case .unfold: 2.0
         }
     }
 
@@ -160,6 +213,9 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .calm: (0.36, (0.33, 0.00, 0.40, 1))
         case .door: (0.28, (0.28, 1.20, 0.40, 1))
         case .spin: (0.22, (0.20, 1.70, 0.40, 1))
+        case .bounce: (0.24, (0.22, 1.60, 0.40, 1))
+        case .rubber: (0.26, (0.20, 1.80, 0.42, 1))
+        case .unfold: (0.30, (0.26, 1.30, 0.40, 1))
         }
     }
 
@@ -176,6 +232,9 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .calm: (0.20, (0.40, 0.00, 0.60, 1))
         case .door: (0.24, (0.45, -0.25, 0.70, 1))
         case .spin: (0.26, (0.65, -0.60, 0.75, 1))
+        case .bounce: (0.24, (0.60, -0.50, 0.74, 1))
+        case .rubber: (0.28, (0.70, -0.70, 0.76, 1))
+        case .unfold: (0.24, (0.45, -0.25, 0.70, 1))
         }
     }
 
@@ -189,6 +248,9 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .calm: (0.30, (0.25, 1.00, 0.35, 1))
         case .door: (0.36, (0.20, 1.40, 0.40, 1))
         case .spin: (0.34, (0.16, 1.75, 0.38, 1))
+        case .bounce: (0.30, (0.18, 1.55, 0.38, 1))
+        case .rubber: (0.32, (0.14, 1.95, 0.36, 1))
+        case .unfold: (0.38, (0.22, 1.35, 0.40, 1))
         }
     }
 }
