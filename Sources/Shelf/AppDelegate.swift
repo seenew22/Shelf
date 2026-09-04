@@ -223,6 +223,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         store?.refreshReferenceDate()
         selection.reset()
+        // 끌어내는 내내 선반이 커서 밑에 있습니다. 다 나온 뒤가 아니라 나오기 시작하는
+        // 순간부터 잠가야, 끌려 나오는 동안 항목이 눌리거나 딸려 나오지 않습니다.
+        selection.suspendActivation()
         // 창 자체가 밀려 나오면서 드러나므로, 내용물까지 커지면 두 움직임이 겹칩니다.
         presentation.showImmediately()
 
@@ -270,6 +273,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func cancelEdgeDrag() {
         guard let panel, let drag = edgeDrag else { return }
         edgeDrag = nil
+        activationUnlockTask?.cancel()
+        selection.resumeActivation()
 
         panel.animate(
             toRevealedWidth: 1,
@@ -322,7 +327,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.makeKey()
         isPanelPresented = true
         statusItem?.button?.highlight(true)
-        suspendRowActivationUntilMouseReleased()
+        resumeRowActivationWhenMouseReleased()
 
         // 가장자리에서 꺼낸 창만, 마우스가 한참 멀어져 있으면 스스로 치워집니다.
         let restingFrame = panel.restingCardFrame(
@@ -440,16 +445,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// 손을 뗄 때까지 목록의 항목이 눌리지 않도록 잠가 둡니다.
+    /// 손을 뗀 것을 확인한 뒤에 목록이 다시 반응하도록 풉니다.
     ///
-    /// 누른 채로 끌어내는 동안 선반이 커서 밑으로 들어오기 때문에, 손을 떼는 순간
-    /// 그 자리의 항목이 눌린 것으로 처리됩니다. 사용자가 의도한 적 없는 복사입니다.
-    /// 버튼이 실제로 놓이는 것을 확인한 다음에야 다시 받습니다.
-    private func suspendRowActivationUntilMouseReleased() {
-        guard NSEvent.pressedMouseButtons != 0 else { return }
-
-        selection.suspendActivation()
+    /// 누른 채로 끌어내는 동안 선반이 커서 밑으로 들어오기 때문에, 그대로 두면 손을 떼는
+    /// 순간 그 자리의 항목이 눌린 것으로 처리되거나, 움직이는 도중에 항목이 딸려 나옵니다.
+    /// 둘 다 사용자가 의도한 적 없는 일입니다.
+    private func resumeRowActivationWhenMouseReleased() {
         activationUnlockTask?.cancel()
+
+        // 누르지 않고 밀어서 연 경우에는 기다릴 것이 없습니다.
+        guard NSEvent.pressedMouseButtons != 0 else {
+            selection.resumeActivation()
+            return
+        }
+
         activationUnlockTask = Task { [weak self] in
             // 어떤 이유로든 놓는 것을 놓치더라도 영영 잠겨 있지는 않도록 한계를 둡니다.
             let deadline = Date().addingTimeInterval(3)

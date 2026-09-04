@@ -99,6 +99,9 @@ struct HistoryView: View {
         .onChange(of: store.referenceDate) {
             copiedItemID = nil
             isSearchFocused = true
+            // 끌어다 놓는 도중에 창이 사라지면 SwiftUI 가 이 값을 되돌려 주지 못합니다.
+            // 그대로 두면 다음에 열었을 때 안내 화면이 덮인 채로 나타나므로 여기서 지웁니다.
+            isDropTargeted = false
         }
         .onChange(of: store.searchQuery) { selection.reset() }
     }
@@ -373,6 +376,12 @@ struct HistoryView: View {
                     // 항목을 지우거나 새로 복사했을 때 목록이 툭 끊기지 않고 이어지게 합니다.
                     .animation(.spring(duration: 0.26, bounce: 0.3), value: store.visibleItems)
                 }
+                // 끌어내는 동작이 끝날 때까지 목록은 아무 반응도 하지 않습니다.
+                //
+                // 누름만 막는 것으로는 모자랍니다. 버튼을 누른 채로 커서가 움직이면 행이
+                // 그것을 드래그로 받아들여, 손을 대지도 않은 항목을 끌어내기 시작합니다.
+                // 눌림과 끌림과 마우스 올림을 한꺼번에 막으려면 반응 자체를 꺼야 합니다.
+                .allowsHitTesting(selection.acceptsActivation)
                 // 키보드로 옮겼을 때만 목록이 따라 움직입니다.
                 // 마우스로 가리켰을 때도 움직이면 항목이 커서 밑에서 빠져나가 버립니다.
                 // 또한 화면 가운데로 끌어오지 않고, 보이게 되는 데 필요한 만큼만 움직입니다.
