@@ -140,6 +140,7 @@ struct HistoryView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
+            keepOpenButton
             finderButton
             settingsMenu
         }
@@ -256,6 +257,21 @@ struct HistoryView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// 창을 열어 둔 채로 둘지 정합니다. Finder 를 오가며 여러 개를 모을 때 씁니다.
+    private var keepOpenButton: some View {
+        Button {
+            preferences.keepsPanelOpen.toggle()
+        } label: {
+            if preferences.keepsPanelOpen {
+                Image(systemName: "lock.fill").foregroundStyle(Color.accentColor)
+            } else {
+                Image(systemName: "lock.open").foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .help(l10n[preferences.keepsPanelOpen ? .headerStopKeepingOpen : .headerKeepOpen])
     }
 
     /// Finder 를 앞으로 불러옵니다. 항목과 상관없이 그냥 파일 탐색으로 넘어가고 싶을 때 씁니다.

@@ -160,6 +160,12 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   ignores everything while a mouse button is held, which is what makes dragging a
   window to the screen edge safe, and telling that apart from dragging a file there
   needs a separate mechanism.
+- **Keep open** — `Preferences.keepsPanelOpen` suspends every automatic dismissal:
+  pointer-leave, outside clicks, and closing after a copy. Collecting several files
+  means walking to Finder and back repeatedly, and each of those trips is an outside
+  click, so a shelf that dismisses on any of them cannot be filled. Deliberately not
+  persisted - it is a mode for a task, not a preference, and a forgotten one would
+  quietly disable dismissal forever.
 - **`ClipboardItem`** — model: stable `id`, `kind` (`.text` / `.image` / `.file`),
   text payload, blob path, original path, `timestamp`, preview, a content
   fingerprint used for dedupe, `isPinned`, and which app was frontmost at capture. It decodes by hand rather than by

@@ -39,3 +39,5 @@
 "menu.edgeOpenMode" = "가장자리에서 여는 방법";
 "edgeMode.push" = "밀어서 열기";
 "edgeMode.drag" = "끌어서 열기";
+"header.keepOpen" = "창을 열어 두기";
+"header.stopKeepingOpen" = "열어 두기 해제";

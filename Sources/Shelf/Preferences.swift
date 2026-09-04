@@ -309,6 +309,16 @@ final class Preferences: ObservableObject {
         }
     }
 
+    /// 창을 열어 둔 채로 두는 중인지 여부입니다.
+    ///
+    /// 여러 파일을 모으려면 Finder 와 선반 사이를 몇 번씩 오가야 하는데, 그때마다 창이
+    /// 닫히면 모을 수가 없습니다. 이 값이 참인 동안에는 마우스가 멀어지거나 바깥을 눌러도
+    /// 닫히지 않고, `Esc` 나 단축키, 메뉴 바 아이콘으로만 닫힙니다.
+    ///
+    /// 그때그때 켜고 끄는 상태이므로 디스크에 남기지 않습니다. 앱을 다시 켜면 꺼진 채로
+    /// 시작하며, 켜 두었다는 사실은 머리글의 자물쇠 표시로 알 수 있습니다.
+    @Published var keepsPanelOpen = false
+
     /// 설정이 바뀌었을 때 감시자를 켜거나 끄기 위해 앱 쪽에서 연결해 둡니다.
     var onEdgeHoverSideChanged: ((EdgeHoverSide) -> Void)?
     var onEdgeOpenModeChanged: ((EdgeOpenMode) -> Void)?

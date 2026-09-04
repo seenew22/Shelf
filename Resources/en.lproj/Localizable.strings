@@ -39,3 +39,5 @@
 "menu.edgeOpenMode" = "Opening from the edge";
 "edgeMode.push" = "Push open";
 "edgeMode.drag" = "Drag open";
+"header.keepOpen" = "Keep open";
+"header.stopKeepingOpen" = "Stop keeping open";

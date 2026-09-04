@@ -126,6 +126,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         edgeHoverMonitor.onPointerLeft = { [weak self] in
             guard let self else { return }
+            // 열어 두기를 켠 동안에는 마우스가 아무리 멀어져도 닫지 않습니다.
+            guard !self.preferences.keepsPanelOpen else { return }
             // 설정 메뉴를 펼쳐 둔 채로 마우스를 옮기는 일은 흔합니다. 이때 창만 닫아 버리면
             // 메뉴가 홀로 남아 떠다니게 되므로, 메뉴가 닫힐 때까지 기다립니다.
             guard !self.hasOpenMenu() else { return }
@@ -402,6 +404,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 방금 우리가 만든 변경이므로, 감시자가 이를 새 복사로 오인하지 않도록 알려 둡니다.
         clipboardMonitor?.acknowledgeSelfWrite(changeCount: changeCount)
 
+        // 열어 두기를 켠 동안에는 복사한 뒤에도 창을 닫지 않습니다.
+        // 여러 개를 잇달아 꺼내려고 켜 둔 것이기 때문입니다.
+        guard !preferences.keepsPanelOpen else { return }
+
         pendingCloseTask?.cancel()
         pendingCloseTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(320))
@@ -475,6 +481,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 이 클릭 때문에 창을 닫지 말아야 하는지 판단합니다.
     private func shouldKeepPanelOpen(forClickAt location: NSPoint) -> Bool {
+        // 열어 두기를 켠 동안에는 어디를 눌러도 닫지 않습니다.
+        // Finder 에서 파일을 고르는 것도 바깥을 누르는 일이기 때문입니다.
+        if preferences.keepsPanelOpen {
+            return true
+        }
+
         // 눈에 보이는 카드 위를 눌렀다면 그대로 둡니다. 카드 바깥의 여백도 창의 일부이긴 하지만
         // 투명해서 보이지 않으므로, 그쪽을 누른 것은 바깥을 누른 것으로 봅니다.
         if let panel, panel.cardFrame.contains(location) {
