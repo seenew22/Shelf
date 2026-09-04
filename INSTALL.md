@@ -39,16 +39,33 @@ swift --version
 **이 저장소는 비공개입니다.** 그래서 처음 쓰는 맥에서는 `git clone` 이 곧바로 되지 않고
 인증을 요구합니다. 아래 셋 중 하나를 고르면 됩니다.
 
-**(1) GitHub CLI 로 로그인하기 — 가장 간단합니다**
+**(1) GitHub CLI 로 로그인하기 — 계정이 하나뿐인 맥에서 가장 간단합니다**
 
 ```bash
 brew install gh      # Homebrew 가 없다면 https://brew.sh 참고
-gh auth login        # 브라우저가 열리면 GitHub 계정으로 승인합니다
+gh auth login        # 브라우저가 열리면 seenew22 계정으로 승인합니다
 ```
 
-**(2) SSH 키 쓰기 — 이미 그 맥에 키를 등록해 두었다면**
+⚠️ **그 맥의 `gh` 에 다른 GitHub 계정이 이미 로그인되어 있다면 이것만으로는 안 됩니다.**
+`gh` 는 활성 계정 하나로만 동작해서, 활성 계정이 회사 계정이면 개인 비공개 저장소가
+아예 보이지 않고 `Could not resolve to a Repository` 로 실패합니다. 이때는 클론하기
+직전에 계정을 바꿔 주세요.
 
-아래 3단계의 주소를 `git@github.com:seenew22/Shelf.git` 로 바꿔서 클론하면 됩니다.
+```bash
+gh auth switch --user seenew22
+```
+
+**(2) SSH 키 쓰기 — 계정을 오갈 일이 잦다면 이쪽이 편합니다**
+
+한 번 설정해 두면 활성 계정과 무관하게 항상 동작합니다.
+
+```bash
+ssh-keygen -t ed25519 -C "seenew22"          # 이미 키가 있다면 건너뜁니다
+cat ~/.ssh/id_ed25519.pub                     # 출력된 값을 복사합니다
+```
+
+복사한 값을 `github.com → Settings → SSH and GPG keys → New SSH key` 에 등록한 뒤,
+아래 3단계에서 SSH 주소로 클론하면 됩니다.
 
 **(3) 저장소를 공개로 바꾸기**
 
@@ -62,10 +79,17 @@ gh auth login        # 브라우저가 열리면 GitHub 계정으로 승인합�
 ### 3. 내려받아서 빌드하기
 
 ```bash
-gh repo clone seenew22/Shelf     # 또는: git clone https://github.com/seenew22/Shelf.git
+git clone git@github.com:seenew22/Shelf.git      # SSH 키를 등록한 경우
+# 또는
+gh repo clone seenew22/Shelf                     # gh 활성 계정이 seenew22 인 경우
+
 cd Shelf
 ./build.sh --run
 ```
+
+> 참고: 지금 이 맥에는 개인 계정용 SSH 설정이 따로 잡혀 있어서 저장소 주소가
+> `git@github.com-personal:seenew22/Shelf.git` 로 되어 있습니다. 그 별칭은 이 맥의
+> `~/.ssh/config` 에만 있는 것이므로, 다른 맥에서는 위의 일반 주소를 쓰시면 됩니다.
 
 빌드가 끝나면 메뉴 바 오른쪽에 트레이 모양 아이콘이 나타납니다. Dock에는 아이콘이
 생기지 않습니다. 이것이 정상입니다.

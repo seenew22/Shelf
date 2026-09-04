@@ -12,13 +12,14 @@ Xcode는 필요하지 않고 Command Line Tools만 있으면 됩니다.
 
 ```bash
 xcode-select --install     # 이미 설치되어 있다면 건너뜁니다
-gh repo clone seenew22/Shelf
+git clone git@github.com:seenew22/Shelf.git
 cd Shelf
 ./build.sh --run
 ```
 
-이 저장소는 비공개라서 처음 쓰는 맥에서는 `gh auth login` 으로 한 번 로그인해 두어야
-합니다. 인증 방법과 대안은 [INSTALL.md](INSTALL.md) 에 정리해 두었습니다.
+이 저장소는 비공개라서 처음 쓰는 맥에서는 인증을 한 번 준비해야 합니다. SSH 키를
+쓰거나 `gh auth login` 으로 로그인하면 되며, 자세한 방법과 주의할 점은
+[INSTALL.md](INSTALL.md) 에 정리해 두었습니다.
 
 메뉴 바 오른쪽에 트레이 모양 아이콘이 나타나면 성공입니다. Dock에는 아이콘이 생기지
 않습니다.
