@@ -77,6 +77,13 @@ struct HistoryView: View {
         // 열린 방향 쪽 모서리를 기준으로 부풀어 오르면서 나타납니다.
         .blur(radius: presentation.blurRadius)
         .rotationEffect(presentation.rotation, anchor: presentation.anchor)
+        // 경첩을 축으로 열리는 방식에서만 각도가 0 이 아닙니다.
+        .rotation3DEffect(
+            presentation.openAngle,
+            axis: (x: 0, y: 1, z: 0),
+            anchor: presentation.anchor,
+            perspective: 0.55
+        )
         .scaleEffect(
             x: presentation.scaleX,
             y: presentation.scaleY,

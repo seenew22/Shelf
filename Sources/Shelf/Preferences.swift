@@ -32,6 +32,10 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
     case pop
     /// 거의 움직이지 않고 조용히 나타납니다. 움직임이 거슬릴 때 고르시면 됩니다.
     case calm
+    /// 경첩이 달린 문처럼 옆으로 활짝 열립니다.
+    case door
+    /// 비스듬히 누운 채로 나타나 팽이처럼 돌아 섭니다.
+    case spin
 
     var id: String { rawValue }
 
@@ -41,6 +45,8 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .drawer: .animationDrawer
         case .pop: .animationPop
         case .calm: .animationCalm
+        case .door: .animationDoor
+        case .spin: .animationSpin
         }
     }
 
@@ -58,6 +64,10 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .pop: Flourish(tiltDegrees: -9, squash: CGSize(width: 0.80, height: 1.22), rowStagger: 0.04)
         // 아무 몸짓도 하지 않습니다.
         case .calm: Flourish(tiltDegrees: 0, squash: CGSize(width: 1.0, height: 1.0), rowStagger: 0)
+        // 경첩을 축으로 활짝 열립니다. 기울이거나 누르지 않고 열림 각도만으로 움직입니다.
+        case .door: Flourish(tiltDegrees: 0, squash: CGSize(width: 1.0, height: 1.0), rowStagger: 0.018, openDegrees: -78)
+        // 크게 누운 채로 나타나 돌면서 섭니다.
+        case .spin: Flourish(tiltDegrees: -24, squash: CGSize(width: 0.94, height: 0.94), rowStagger: 0.03)
         }
     }
 
@@ -69,6 +79,24 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         var squash: CGSize
         /// 목록의 항목이 하나씩 차오르는 간격입니다. 0 이면 한꺼번에 나타납니다.
         var rowStagger: TimeInterval
+        /// 경첩을 축으로 접혀 있는 각도입니다. 0 이 아니면 문이 열리듯 펼쳐집니다.
+        var openDegrees: Double = 0
+    }
+
+    /// 물러날 때의 눌린 정도입니다.
+    ///
+    /// 들어올 때의 값을 뒤집어 쓰면 팝처럼 세로로 늘어나며 들어온 방식이 나갈 때는
+    /// 가로로 크게 퍼지게 되는데, 회전까지 겹치면 카드가 창 밖으로 삐져나갑니다.
+    /// 그래서 나갈 때는 언제나 가로로 좁아지는 쪽으로만 눌립니다.
+    var departureSquash: CGSize {
+        switch self {
+        case .droplet: CGSize(width: 0.88, height: 1.06)
+        case .drawer: CGSize(width: 1.0, height: 1.0)
+        case .pop: CGSize(width: 0.72, height: 1.18)
+        case .calm: CGSize(width: 1.0, height: 1.0)
+        case .door: CGSize(width: 1.0, height: 1.0)
+        case .spin: CGSize(width: 0.90, height: 0.90)
+        }
     }
 
     /// 물러날 때의 몸짓입니다. 나타날 때와 짝이 맞아야 같은 성격으로 읽힙니다.
@@ -79,8 +107,10 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .droplet: (0, .spring(duration: 0.28, bounce: 0.35), 0.28)
         case .drawer: (0, .easeIn(duration: 0.20), 0.20)
-        case .pop: (13, .spring(duration: 0.24, bounce: 0.45), 0.24)
+        case .pop: (11, .spring(duration: 0.24, bounce: 0.45), 0.24)
         case .calm: (0, .easeOut(duration: 0.14), 0.14)
+        case .door: (0, .easeIn(duration: 0.22), 0.22)
+        case .spin: (26, .spring(duration: 0.26, bounce: 0.4), 0.26)
         }
     }
 
@@ -91,6 +121,8 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .drawer: .spring(duration: 0.30, bounce: 0.12)
         case .pop: .spring(duration: 0.48, bounce: 0.72)
         case .calm: .easeOut(duration: 0.18)
+        case .door: .spring(duration: 0.50, bounce: 0.32)
+        case .spin: .spring(duration: 0.56, bounce: 0.52)
         }
     }
 
@@ -101,6 +133,8 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .drawer: 24
         case .pop: 38
         case .calm: 22
+        case .door: 26
+        case .spin: 28
         }
     }
 
@@ -112,6 +146,8 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .drawer: 1.6
         case .pop: 3.4
         case .calm: 1.3
+        case .door: 2.0
+        case .spin: 2.6
         }
     }
 
@@ -122,6 +158,8 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .drawer: (0.34, (0.30, 0.00, 0.30, 1))
         case .pop: (0.18, (0.16, 1.90, 0.40, 1))
         case .calm: (0.36, (0.33, 0.00, 0.40, 1))
+        case .door: (0.28, (0.28, 1.20, 0.40, 1))
+        case .spin: (0.22, (0.20, 1.70, 0.40, 1))
         }
     }
 
@@ -136,6 +174,8 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .drawer: (0.26, (0.40, 0.00, 0.70, 1))
         case .pop: (0.24, (0.72, -0.75, 0.78, 1))
         case .calm: (0.20, (0.40, 0.00, 0.60, 1))
+        case .door: (0.24, (0.45, -0.25, 0.70, 1))
+        case .spin: (0.26, (0.65, -0.60, 0.75, 1))
         }
     }
 
@@ -147,6 +187,8 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .drawer: (0.34, (0.22, 1.14, 0.36, 1))
         case .pop: (0.26, (0.14, 2.00, 0.36, 1))
         case .calm: (0.30, (0.25, 1.00, 0.35, 1))
+        case .door: (0.36, (0.20, 1.40, 0.40, 1))
+        case .spin: (0.34, (0.16, 1.75, 0.38, 1))
         }
     }
 }

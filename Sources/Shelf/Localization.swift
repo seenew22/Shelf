@@ -62,6 +62,8 @@ enum StringKey: String {
     case animationDrawer = "animation.drawer"
     case animationPop = "animation.pop"
     case animationCalm = "animation.calm"
+    case animationDoor = "animation.door"
+    case animationSpin = "animation.spin"
     case edgeOff = "edge.off"
     case edgeLeft = "edge.left"
     case edgeRight = "edge.right"

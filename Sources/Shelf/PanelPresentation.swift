@@ -30,6 +30,9 @@ final class PanelPresentation: ObservableObject {
     /// 도착 직전의 기울기입니다. 바로 서면서 0 이 됩니다.
     @Published private(set) var rotation: Angle = .zero
 
+    /// 경첩을 축으로 접혀 있는 각도입니다. 활짝 열리면서 0 이 됩니다.
+    @Published private(set) var openAngle: Angle = .zero
+
     /// 목록이 얼마나 차올랐는지를 0에서 1 사이로 나타냅니다.
     /// 각 행은 자기 순서에 맞춰 이 값에서 자기 몫을 계산합니다.
     @Published private(set) var contentPhase: Double = 1
@@ -52,6 +55,7 @@ final class PanelPresentation: ObservableObject {
         rowStagger = flourish.rowStagger
         applyCollapsedState()
         rotation = .degrees(flourish.tiltDegrees)
+        openAngle = .degrees(flourish.openDegrees)
         contentPhase = flourish.rowStagger > 0 ? 0 : 1
 
         // 접힌 모습이 한 번 그려진 다음에 펼쳐야 움직임이 보입니다.
@@ -66,15 +70,17 @@ final class PanelPresentation: ObservableObject {
     ///
     /// 잡아당기는 동안에는 창 자체가 손을 따라 움직이므로 내용물을 건드리지 않습니다.
     /// 대신 다 꺼내진 그 순간에만 기울기와 눌림을 주어서, 방식마다 착지가 다르게 느껴지게 합니다.
-    func land(with style: PanelAnimationStyle) {
+    func land(with style: PanelAnimationStyle, hingedAt hinge: UnitPoint) {
         let flourish = style.flourish
-        anchor = .center
+        // 문이 열리듯 펼쳐지는 방식에서는 경첩이 화면 끝 쪽에 있어야 자연스럽습니다.
+        anchor = flourish.openDegrees == 0 ? .center : hinge
         rowStagger = flourish.rowStagger
 
         opacity = 1
         blurRadius = 0
         cornerRadius = panelExpandedCornerRadius
         rotation = .degrees(flourish.tiltDegrees)
+        openAngle = .degrees(flourish.openDegrees)
         scaleX = flourish.squash.width
         scaleY = flourish.squash.height
         contentPhase = flourish.rowStagger > 0 ? 0 : 1
@@ -94,6 +100,7 @@ final class PanelPresentation: ObservableObject {
     private func settle(with animation: Animation, stagger: TimeInterval) {
         withAnimation(animation) {
             rotation = .zero
+            openAngle = .zero
             scaleX = 1
             scaleY = 1
         }
@@ -111,6 +118,7 @@ final class PanelPresentation: ObservableObject {
         scaleX = 1
         scaleY = 1
         rotation = .zero
+        openAngle = .zero
         contentPhase = 1
         opacity = 1
         cornerRadius = panelExpandedCornerRadius
@@ -127,6 +135,7 @@ final class PanelPresentation: ObservableObject {
     func collapse(with style: PanelAnimationStyle) {
         let departure = style.departure
         let flourish = style.flourish
+        let departureSquash = style.departureSquash
 
         // 투명해지는 것을 조금 늦추기 때문에, 창을 실제로 내리는 시점도 그만큼 미뤄야 합니다.
         let fadeDelay = departure.duration * 0.35
@@ -135,11 +144,12 @@ final class PanelPresentation: ObservableObject {
         withAnimation(departure.animation) {
             // 들어올 때와 반대로 눌립니다. 옆으로 퍼지며 들어왔다면 좁아지며 나가고,
             // 세로로 늘어나며 들어왔다면 납작해지며 나갑니다.
-            scaleX = collapsedState.scale.width * flourish.squash.height
-            scaleY = collapsedState.scale.height * flourish.squash.width
+            scaleX = collapsedState.scale.width * departureSquash.width
+            scaleY = collapsedState.scale.height * departureSquash.height
             cornerRadius = collapsedState.cornerRadius
             blurRadius = collapsedState.blurRadius
             rotation = .degrees(departure.tiltDegrees)
+            openAngle = .degrees(flourish.openDegrees)
         }
         // 크기와 같은 속도로 투명해지면 몸짓이 보이기 전에 사라져 버립니다.
         withAnimation(.easeIn(duration: departure.duration).delay(fadeDelay)) {
@@ -149,6 +159,7 @@ final class PanelPresentation: ObservableObject {
 
     private func applyCollapsedState() {
         rotation = .zero
+        openAngle = .zero
         scaleX = collapsedState.scale.width
         scaleY = collapsedState.scale.height
         cornerRadius = collapsedState.cornerRadius
@@ -164,7 +175,10 @@ final class PanelPresentation: ObservableObject {
             opacity = 1
             blurRadius = 0
         }
-        withAnimation(animation) { rotation = .zero }
+        withAnimation(animation) {
+            rotation = .zero
+            openAngle = .zero
+        }
         if rowStagger > 0 {
             withAnimation(.easeOut(duration: 0.5)) { contentPhase = 1 }
         }
@@ -216,6 +230,8 @@ final class PanelPresentation: ObservableObject {
             case .drawer: drawer
             case .pop: pop
             case .calm: calm
+            case .door: door
+            case .spin: spin
             }
         }
 
@@ -263,6 +279,34 @@ final class PanelPresentation: ObservableObject {
             cornerUnwind: .spring(duration: 0.26, bounce: 0.35),
             fadeIn: .easeOut(duration: 0.09),
             collapseDuration: 0.10
+        )
+
+        /// 경첩을 축으로 활짝 열리는 방식입니다. 크기는 거의 그대로 두고 열림 각도로만 움직입니다.
+        static let door = Recipe(
+            collapsedScaleAtEdge: CGSize(width: 1.0, height: 0.96),
+            collapsedScaleFromAbove: CGSize(width: 1.0, height: 0.96),
+            collapsedScaleAtCursor: CGSize(width: 1.0, height: 0.96),
+            collapsedCornerRadius: panelExpandedCornerRadius,
+            collapsedBlurRadius: 0,
+            horizontalGrowth: .spring(duration: 0.42, bounce: 0.28),
+            verticalGrowth: .spring(duration: 0.42, bounce: 0.28),
+            cornerUnwind: .easeOut(duration: 0.30),
+            fadeIn: .easeOut(duration: 0.16),
+            collapseDuration: 0.22
+        )
+
+        /// 비스듬히 누운 채로 작게 나타나 돌면서 서는 방식입니다.
+        static let spin = Recipe(
+            collapsedScaleAtEdge: CGSize(width: 0.40, height: 0.40),
+            collapsedScaleFromAbove: CGSize(width: 0.40, height: 0.40),
+            collapsedScaleAtCursor: CGSize(width: 0.40, height: 0.40),
+            collapsedCornerRadius: 90,
+            collapsedBlurRadius: 4,
+            horizontalGrowth: .spring(duration: 0.50, bounce: 0.50),
+            verticalGrowth: .spring(duration: 0.50, bounce: 0.50),
+            cornerUnwind: .spring(duration: 0.46, bounce: 0.25),
+            fadeIn: .easeOut(duration: 0.16),
+            collapseDuration: 0.26
         )
 
         /// 거의 움직이지 않고 조용히 나타나는 방식입니다.

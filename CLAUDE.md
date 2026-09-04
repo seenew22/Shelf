@@ -94,9 +94,17 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   sidebars and the cursor goes there constantly, while the corners are where people
   park the mouse and where macOS puts Hot Corners. A held mouse button suppresses
   the whole thing, since that means a window is being dragged to the edge.
-- **`PanelAnimationStyle`** — four named recipes (droplet, drawer, pop, calm) chosen
-  in the settings menu. A recipe is just the collapsed scale per opening direction
-  plus one `Animation` for each of size, corner radius and opacity. Keeping those on
+- **`PanelAnimationStyle`** — six named recipes chosen in the settings menu. A recipe
+  is the collapsed scale per opening direction plus one `Animation` for each of size,
+  corner radius and opacity, and a `Flourish` describing the gesture on arrival: tilt,
+  squash, hinge angle, and how much the rows stagger.
+
+  Rotation costs window margin. A 340x460 card tilted 9 degrees and stretched to 1.22
+  vertically pushes 68pt past its own bounds top and bottom, so `shadowMargin` has to
+  exceed that or the corners are simply cut off - which is how the clipping bug
+  arrived. Departure squash is declared separately rather than inverting the arrival
+  values, because inverting a vertical stretch produces a horizontal one, and that
+  plus tilt sent the card 73pt out each side. Keeping those on
   separate clocks is what makes the styles distinguishable; drive them from one
   animation and every style collapses back into "it gets bigger".
   Polling beats a global mouse monitor here: the monitor wakes on every mouse move

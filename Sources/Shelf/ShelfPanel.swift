@@ -18,9 +18,13 @@ final class ShelfPanel: NSPanel {
     static let contentWidth: CGFloat = 340
     static let contentHeight: CGFloat = 460
 
-    /// 그림자와 확대 여유를 담기 위해 창을 카드보다 이만큼 크게 잡습니다.
-    /// 그림자가 잘려 보이지 않도록 번지는 거리와 아래로 치우친 정도를 넉넉히 덮을 만큼 둡니다.
-    static let shadowMargin: CGFloat = 36
+    /// 그림자와 움직임의 여유를 담기 위해 창을 카드보다 이만큼 크게 잡습니다.
+    ///
+    /// 카드가 기울어지면 모서리가 원래 사각형 바깥으로 나갑니다. 340 x 460 카드를
+    /// 9도 기울이고 세로로 1.22배 늘이면 위아래로 각 68포인트가 삐져나오므로,
+    /// 여백이 그보다 작으면 그만큼 잘려 보입니다. 여기에 그림자가 번지는 거리까지 더해
+    /// 잡아 둡니다.
+    static let shadowMargin: CGFloat = 76
 
     /// 창이 어느 지점에서 자라나는지를 나타냅니다.
     enum SlideOrigin {

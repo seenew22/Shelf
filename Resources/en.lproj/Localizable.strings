@@ -30,4 +30,6 @@
 "header.openFinder" = "Open Finder";
 "search.placeholder" = "Search";
 "search.empty" = "Nothing matches";
-"drop.hint" = "Drop here to keep it on the shelf";
+"drop.hint" = "Drop here to keep it";
+"animation.door" = "Door";
+"animation.spin" = "Spin";
