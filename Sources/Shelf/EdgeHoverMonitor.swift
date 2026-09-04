@@ -92,6 +92,13 @@ final class EdgeHoverMonitor {
     /// 경우와 구별하기 위한 것으로, 그때는 제목 표시줄에서 이미 누른 채로 들어오므로
     /// 가장자리에서 누르기 시작한 것이 아닙니다.
     private var pressBeganAtEdge = false
+
+    /// 버튼을 누르기 시작한 시점의 드래그 클립보드 상태입니다.
+    ///
+    /// macOS 는 무언가를 끌기 시작하면 그 내용을 드래그 전용 클립보드에 올립니다.
+    /// 창을 끌 때는 올리지 않습니다. 그래서 누른 뒤에 이 값이 달라졌는지만 보면
+    /// "파일을 끌고 있는 중"과 "창을 끌고 있는 중"을 구별할 수 있습니다.
+    private var dragPasteboardCountAtPress: Int?
     private var timer: Timer?
     private var stage: Stage = .away
 
@@ -159,12 +166,19 @@ final class EdgeHoverMonitor {
             // 가장자리에 닿아 있는 동안 누르기 시작했는지를 기록해 둡니다.
             if !isPressed {
                 pressBeganAtEdge = false
-            } else if !pressBeganAtEdge, isAtEdgeStage {
-                pressBeganAtEdge = true
+                dragPasteboardCountAtPress = nil
+            } else {
+                if dragPasteboardCountAtPress == nil {
+                    dragPasteboardCountAtPress = Self.dragPasteboardChangeCount
+                }
+                if !pressBeganAtEdge, isAtEdgeStage {
+                    pressBeganAtEdge = true
+                }
             }
 
-            // 여기서 시작한 누름이 아니라면, 창을 화면 끝에 붙이려는 동작으로 보고 비켜 줍니다.
-            if isPressed, !pressBeganAtEdge {
+            // 파일을 끌고 오는 중이라면, 어디서 집었든 받아 주어야 합니다.
+            // 여기서 집은 것이 아니라면 창을 화면 끝에 붙이려는 동작으로 보고 비켜 줍니다.
+            if isPressed, !pressBeganAtEdge, !isCarryingSomething {
                 cancelPeekIfNeeded()
                 stage = .away
                 return
@@ -199,6 +213,13 @@ final class EdgeHoverMonitor {
             onPeekBegan?(edge, screen, location.y)
 
         case .peeking(let edge, let screen, let anchorHeight, let since):
+            // 무언가를 들고 왔다면 곧바로 활짝 열어 줍니다. 받아 놓을 자리가 필요한 상황이라
+            // 여기서 다시 당기라고 요구하는 것은 말이 되지 않습니다.
+            if isCarryingSomething {
+                commit(edge: edge, screen: screen, at: anchorHeight)
+                return
+            }
+
             // 끌어서 여는 방식에서는 누른 채로 당기는 동안에만 반응합니다.
             if openMode == .drag, !isPressed {
                 // 누르지 않은 채 가장자리를 벗어나면 내밀어 둔 것을 거둡니다.
@@ -221,6 +242,19 @@ final class EdgeHoverMonitor {
         }
     }
 
+    /// 지금 무언가를 끌고 오는 중인지 여부입니다.
+    ///
+    /// 누르기 시작한 뒤에 드래그 클립보드가 바뀌었다면, 그 누름은 무언가를 집어 든 것입니다.
+    /// 창을 끄는 동작은 드래그 클립보드를 건드리지 않으므로 여기에 걸리지 않습니다.
+    private var isCarryingSomething: Bool {
+        guard let countAtPress = dragPasteboardCountAtPress else { return false }
+        return Self.dragPasteboardChangeCount != countAtPress
+    }
+
+    private static var dragPasteboardChangeCount: Int {
+        NSPasteboard(name: .drag).changeCount
+    }
+
     /// 지금 가장자리에 닿아 있는 단계인지 여부입니다.
     private var isAtEdgeStage: Bool {
         switch stage {
@@ -232,6 +266,7 @@ final class EdgeHoverMonitor {
     private func commit(edge: HorizontalEdge, screen: NSScreen, at height: CGFloat) {
         stage = .settling
         pressBeganAtEdge = false
+        dragPasteboardCountAtPress = nil
         onCommit?(edge, screen, height)
     }
 
