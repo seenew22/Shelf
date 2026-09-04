@@ -197,6 +197,14 @@ final class HistoryStore: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
+    /// Finder 를 앞으로 불러옵니다. 창이 하나도 없으면 새로 엽니다.
+    func activateFinder() {
+        guard let finder = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.finder") else {
+            return
+        }
+        NSWorkspace.shared.openApplication(at: finder, configuration: NSWorkspace.OpenConfiguration())
+    }
+
     /// 항목에 딸린 파일이나 폴더를 기본 앱으로 엽니다.
     func openWithDefaultApplication(_ item: ClipboardItem) {
         guard let url = finderURL(for: item) else { return }

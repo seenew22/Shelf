@@ -27,6 +27,16 @@ final class PanelPresentation: ObservableObject {
     /// 그 지점에서 부풀어 오르는 것처럼 보입니다.
     @Published private(set) var anchor: UnitPoint = .center
 
+    /// 도착 직전의 기울기입니다. 바로 서면서 0 이 됩니다.
+    @Published private(set) var rotation: Angle = .zero
+
+    /// 목록이 얼마나 차올랐는지를 0에서 1 사이로 나타냅니다.
+    /// 각 행은 자기 순서에 맞춰 이 값에서 자기 몫을 계산합니다.
+    @Published private(set) var contentPhase: Double = 1
+
+    /// 행이 하나씩 차오르는 간격입니다. 0 이면 한꺼번에 나타납니다.
+    private(set) var rowStagger: TimeInterval = 0
+
     /// 지금 고른 방식으로 창을 감추는 데 걸리는 시간입니다.
     /// 창을 실제로 화면에서 내리는 시점을 맞추는 데 씁니다.
     private(set) var collapseDuration: TimeInterval = 0.17
@@ -35,16 +45,61 @@ final class PanelPresentation: ObservableObject {
 
     func expand(from origin: ShelfPanel.SlideOrigin, style: PanelAnimationStyle) {
         let recipe = Recipe.forStyle(style)
+        let flourish = style.flourish
         anchor = origin.anchor
         collapsedState = recipe.collapsedState(for: origin)
         collapseDuration = recipe.collapseDuration
+        rowStagger = flourish.rowStagger
         applyCollapsedState()
+        rotation = .degrees(flourish.tiltDegrees)
+        contentPhase = flourish.rowStagger > 0 ? 0 : 1
 
         // 접힌 모습이 한 번 그려진 다음에 펼쳐야 움직임이 보입니다.
         // 같은 차례에 이어서 값을 바꾸면 SwiftUI 가 중간 상태를 건너뛰고
         // 곧바로 완성된 모습을 그려서, 깜빡하고 나타난 것처럼 보입니다.
         Task { @MainActor [weak self] in
-            self?.animateToExpandedState(with: recipe)
+            self?.animateToExpandedState(with: recipe, settle: style.settle)
+        }
+    }
+
+    /// 가장자리에서 잡아 뺀 선반이 제자리에 닿는 순간의 몸짓입니다.
+    ///
+    /// 잡아당기는 동안에는 창 자체가 손을 따라 움직이므로 내용물을 건드리지 않습니다.
+    /// 대신 다 꺼내진 그 순간에만 기울기와 눌림을 주어서, 방식마다 착지가 다르게 느껴지게 합니다.
+    func land(with style: PanelAnimationStyle) {
+        let flourish = style.flourish
+        anchor = .center
+        rowStagger = flourish.rowStagger
+
+        opacity = 1
+        blurRadius = 0
+        cornerRadius = panelExpandedCornerRadius
+        rotation = .degrees(flourish.tiltDegrees)
+        scaleX = flourish.squash.width
+        scaleY = flourish.squash.height
+        contentPhase = flourish.rowStagger > 0 ? 0 : 1
+
+        collapsedState = CollapsedState(
+            scale: CGSize(width: 1, height: 1),
+            cornerRadius: panelExpandedCornerRadius,
+            blurRadius: 0
+        )
+        collapseDuration = 0.12
+
+        Task { @MainActor [weak self] in
+            self?.settle(with: style.settle, stagger: flourish.rowStagger)
+        }
+    }
+
+    private func settle(with animation: Animation, stagger: TimeInterval) {
+        withAnimation(animation) {
+            rotation = .zero
+            scaleX = 1
+            scaleY = 1
+        }
+        guard stagger > 0 else { return }
+        withAnimation(.easeOut(duration: 0.5)) {
+            contentPhase = 1
         }
     }
 
@@ -55,6 +110,8 @@ final class PanelPresentation: ObservableObject {
     func showImmediately() {
         scaleX = 1
         scaleY = 1
+        rotation = .zero
+        contentPhase = 1
         opacity = 1
         cornerRadius = panelExpandedCornerRadius
         blurRadius = 0
@@ -73,6 +130,7 @@ final class PanelPresentation: ObservableObject {
     }
 
     private func applyCollapsedState() {
+        rotation = .zero
         scaleX = collapsedState.scale.width
         scaleY = collapsedState.scale.height
         cornerRadius = collapsedState.cornerRadius
@@ -80,13 +138,17 @@ final class PanelPresentation: ObservableObject {
         opacity = 0
     }
 
-    private func animateToExpandedState(with recipe: Recipe) {
+    private func animateToExpandedState(with recipe: Recipe, settle animation: Animation) {
         withAnimation(recipe.horizontalGrowth) { scaleX = 1 }
         withAnimation(recipe.verticalGrowth) { scaleY = 1 }
         withAnimation(recipe.cornerUnwind) { cornerRadius = panelExpandedCornerRadius }
         withAnimation(recipe.fadeIn) {
             opacity = 1
             blurRadius = 0
+        }
+        withAnimation(animation) { rotation = .zero }
+        if rowStagger > 0 {
+            withAnimation(.easeOut(duration: 0.5)) { contentPhase = 1 }
         }
     }
 

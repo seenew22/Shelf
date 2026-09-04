@@ -27,3 +27,4 @@
 "row.unpin" = "고정 해제";
 "row.revealInFinder" = "Finder에서 보기";
 "row.open" = "열기";
+"header.openFinder" = "Finder 열기";

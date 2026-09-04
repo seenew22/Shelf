@@ -43,6 +43,7 @@ enum StringKey: String {
     case rowUnpin = "row.unpin"
     case rowRevealInFinder = "row.revealInFinder"
     case rowOpen = "row.open"
+    case headerOpenFinder = "header.openFinder"
     case rowJustNow = "row.justNow"
     case rowCopied = "row.copied"
     case rowImage = "row.image"

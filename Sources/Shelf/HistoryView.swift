@@ -60,6 +60,7 @@ struct HistoryView: View {
         .shadow(color: .black.opacity(0.28), radius: 4, y: 1)
         // 열린 방향 쪽 모서리를 기준으로 부풀어 오르면서 나타납니다.
         .blur(radius: presentation.blurRadius)
+        .rotationEffect(presentation.rotation, anchor: presentation.anchor)
         .scaleEffect(
             x: presentation.scaleX,
             y: presentation.scaleY,
@@ -81,6 +82,16 @@ struct HistoryView: View {
         return revision.isEmpty ? version : "\(version) (\(revision))"
     }()
 
+    /// 목록이 차례로 차오를 때, 이 순서의 행이 얼마나 나타났는지를 돌려줍니다.
+    ///
+    /// 아래쪽 행일수록 늦게 시작하되, 너무 늦게 시작해서 끝내 다 나타나지 못하는 일이
+    /// 없도록 시작 시점에 상한을 둡니다.
+    private func revealProgress(for position: Int) -> Double {
+        guard presentation.rowStagger > 0 else { return 1 }
+        let start = min(Double(position) * presentation.rowStagger, 0.6)
+        return min(max((presentation.contentPhase - start) / 0.2, 0), 1)
+    }
+
     /// 카드의 외곽 모양입니다. 펼쳐지는 동안 둥글기가 변합니다.
     private var cardShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: presentation.cornerRadius, style: .continuous)
@@ -97,10 +108,23 @@ struct HistoryView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
+            finderButton
             settingsMenu
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+
+    /// Finder 를 앞으로 불러옵니다. 항목과 상관없이 그냥 파일 탐색으로 넘어가고 싶을 때 씁니다.
+    private var finderButton: some View {
+        Button {
+            store.activateFinder()
+        } label: {
+            Image(systemName: "folder")
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help(l10n[.headerOpenFinder])
     }
 
     private var settingsMenu: some View {
@@ -169,6 +193,7 @@ struct HistoryView: View {
                                 item: item,
                                 payloadURL: store.payloadURL(for: item),
                                 referenceDate: referenceDate,
+                                revealProgress: revealProgress(for: position),
                                 l10n: l10n,
                                 isSelected: selection.index == position,
                                 isCopied: copiedItemID == item.id,
@@ -234,6 +259,9 @@ private struct HistoryRow: View {
 
     /// "몇 분 전"을 계산할 기준 시각입니다. 목록 전체가 같은 기준을 공유합니다.
     let referenceDate: Date
+
+    /// 목록이 차례로 차오를 때 이 행이 얼마나 나타났는지입니다. 1 이면 다 나타난 상태입니다.
+    let revealProgress: Double
 
     @ObservedObject var l10n: LocalizationManager
 
@@ -304,6 +332,8 @@ private struct HistoryRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .opacity(revealProgress)
+        .offset(x: (1 - revealProgress) * 16)
         .contentShape(Rectangle())
         .background(rowBackground)
         .animation(.spring(duration: 0.24, bounce: 0.45), value: isCopied)

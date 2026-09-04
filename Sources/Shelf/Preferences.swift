@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 /// 화면 가장자리에 마우스를 대서 창을 여는 기능의 설정값입니다.
 enum EdgeHoverSide: String, CaseIterable, Identifiable, Sendable {
@@ -41,6 +41,43 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         case .drawer: .animationDrawer
         case .pop: .animationPop
         case .calm: .animationCalm
+        }
+    }
+
+    /// 창이 제자리에 도착하는 순간의 몸짓입니다.
+    ///
+    /// 크기 변화만으로는 네 방식이 결국 "크기가 다르게 변하는 사각형"으로 수렴합니다.
+    /// 기울기와 눌림, 목록이 차례로 차오르는 정도까지 달리해야 성격이 갈립니다.
+    var flourish: Flourish {
+        switch self {
+        // 젤리처럼 옆으로 퍼졌다가 되돌아옵니다.
+        case .droplet: Flourish(tiltDegrees: 0, squash: CGSize(width: 1.10, height: 0.90), rowStagger: 0.022)
+        // 서랍이 끝까지 밀려 들어가 멈추듯, 군더더기 없이 섭니다.
+        case .drawer: Flourish(tiltDegrees: 0, squash: CGSize(width: 1.0, height: 1.0), rowStagger: 0)
+        // 비스듬히 튀어나왔다가 바로 서면서 세로로 늘어납니다.
+        case .pop: Flourish(tiltDegrees: -6, squash: CGSize(width: 0.88, height: 1.14), rowStagger: 0.04)
+        // 아무 몸짓도 하지 않습니다.
+        case .calm: Flourish(tiltDegrees: 0, squash: CGSize(width: 1.0, height: 1.0), rowStagger: 0)
+        }
+    }
+
+    /// 도착하는 순간의 몸짓을 이루는 값들입니다.
+    struct Flourish {
+        /// 도착 직전의 기울기입니다. 0 이 아니면 비스듬히 나타났다가 바로 섭니다.
+        var tiltDegrees: Double
+        /// 도착 직전의 눌린 정도입니다. 가로로 퍼지거나 세로로 늘어난 채로 도착합니다.
+        var squash: CGSize
+        /// 목록의 항목이 하나씩 차오르는 간격입니다. 0 이면 한꺼번에 나타납니다.
+        var rowStagger: TimeInterval
+    }
+
+    /// 도착한 뒤 제자리를 찾아가는 움직임입니다.
+    var settle: Animation {
+        switch self {
+        case .droplet: .spring(duration: 0.52, bounce: 0.48)
+        case .drawer: .spring(duration: 0.30, bounce: 0.12)
+        case .pop: .spring(duration: 0.46, bounce: 0.62)
+        case .calm: .easeOut(duration: 0.18)
         }
     }
 

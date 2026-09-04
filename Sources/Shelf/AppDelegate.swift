@@ -300,6 +300,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         )
 
+        // 다 꺼내진 순간에만 방식에 맞는 착지 몸짓을 줍니다.
+        presentation.land(with: preferences.panelAnimationStyle)
+
         panel.makeKey()
         isPanelPresented = true
         statusItem?.button?.highlight(true)
