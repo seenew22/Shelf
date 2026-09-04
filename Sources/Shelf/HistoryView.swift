@@ -350,13 +350,20 @@ struct HistoryView: View {
                                 isCopied: copiedItemID == item.id,
                                 onHover: { selection.selectByPointer(position) },
                                 onCopy: {
+                                    guard selection.acceptsActivation else { return }
                                     copiedItemID = item.id
                                     onCopy(item)
                                 },
-                                onTogglePin: { store.togglePin(item) },
+                                onTogglePin: {
+                                    guard selection.acceptsActivation else { return }
+                                    store.togglePin(item)
+                                },
                                 onReveal: { store.revealInFinder(item) },
                                 onOpen: { store.openWithDefaultApplication(item) },
-                                onDelete: { store.remove(item) }
+                                onDelete: {
+                                    guard selection.acceptsActivation else { return }
+                                    store.remove(item)
+                                }
                             )
                             .id(item.id)
                             .transition(.opacity.combined(with: .move(edge: .top)))

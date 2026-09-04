@@ -30,6 +30,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 사라지는 움직임이 끝난 뒤 창을 실제로 감추기 위해 예약해 둔 작업입니다.
     private var hideTask: Task<Void, Never>?
 
+    /// 끌어내던 손을 떼기를 기다리는 작업입니다.
+    private var activationUnlockTask: Task<Void, Never>?
+
     /// 창 바깥을 클릭했을 때 창을 닫기 위한 감시자입니다.
     private var outsideClickMonitor: Any?
 
@@ -319,6 +322,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.makeKey()
         isPanelPresented = true
         statusItem?.button?.highlight(true)
+        suspendRowActivationUntilMouseReleased()
 
         // 가장자리에서 꺼낸 창만, 마우스가 한참 멀어져 있으면 스스로 치워집니다.
         let restingFrame = panel.restingCardFrame(
@@ -333,6 +337,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func closePanel() {
+        activationUnlockTask?.cancel()
+        activationUnlockTask = nil
+        selection.resumeActivation()
+
         // 아직 다 꺼내지 않은 상태라면 도로 밀어 넣는 것으로 충분합니다.
         if edgeDrag != nil {
             cancelEdgeDrag()
@@ -429,6 +437,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 return handled ? nil : event
             }
+        }
+    }
+
+    /// 손을 뗄 때까지 목록의 항목이 눌리지 않도록 잠가 둡니다.
+    ///
+    /// 누른 채로 끌어내는 동안 선반이 커서 밑으로 들어오기 때문에, 손을 떼는 순간
+    /// 그 자리의 항목이 눌린 것으로 처리됩니다. 사용자가 의도한 적 없는 복사입니다.
+    /// 버튼이 실제로 놓이는 것을 확인한 다음에야 다시 받습니다.
+    private func suspendRowActivationUntilMouseReleased() {
+        guard NSEvent.pressedMouseButtons != 0 else { return }
+
+        selection.suspendActivation()
+        activationUnlockTask?.cancel()
+        activationUnlockTask = Task { [weak self] in
+            // 어떤 이유로든 놓는 것을 놓치더라도 영영 잠겨 있지는 않도록 한계를 둡니다.
+            let deadline = Date().addingTimeInterval(3)
+            while NSEvent.pressedMouseButtons != 0, Date() < deadline {
+                try? await Task.sleep(for: .milliseconds(25))
+                if Task.isCancelled { return }
+            }
+            // 놓는 순간에 일어나는 처리가 끝난 뒤에 풀어야 합니다.
+            try? await Task.sleep(for: .milliseconds(60))
+            guard !Task.isCancelled else { return }
+            self?.selection.resumeActivation()
         }
     }
 

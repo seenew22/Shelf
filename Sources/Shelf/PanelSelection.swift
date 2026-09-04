@@ -14,6 +14,21 @@ final class PanelSelection: ObservableObject {
     /// 항목이 커서 밑에서 움직여 버려서, 고르려던 항목을 오히려 놓치게 되기 때문입니다.
     @Published private(set) var scrollRequestID = 0
 
+    /// 목록의 항목을 눌러서 실행하는 것을 받아들일 준비가 되었는지 여부입니다.
+    ///
+    /// 가장자리에서 누른 채로 선반을 끌어내면, 선반이 커서 밑으로 따라 들어옵니다.
+    /// 이때 버튼을 떼면 그 자리에 있던 항목을 누른 것으로 처리되는데, 사용자는 그 항목을
+    /// 누른 적이 없습니다. 끌어내는 동작이 끝날 때까지는 받지 않도록 잠가 둡니다.
+    @Published private(set) var acceptsActivation = true
+
+    func suspendActivation() {
+        acceptsActivation = false
+    }
+
+    func resumeActivation() {
+        acceptsActivation = true
+    }
+
     func reset() {
         index = 0
         scrollRequestID += 1

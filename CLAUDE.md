@@ -97,6 +97,12 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   press-and-pull instead, and that stays distinguishable from window tiling by only
   honouring a press that *began* at the edge. A window drag begins on a title bar
   and merely arrives there.
+
+  Drag mode brings its own hazard: the shelf travels *under* the cursor while the
+  button is still down, so releasing lands a click on whichever row happens to be
+  there - copying something the user never pointed at. Row activation is therefore
+  locked from the moment an edge drag commits until the button is actually observed
+  to release, with a timeout so a missed release cannot lock it forever.
 - **`PanelAnimationStyle`** — six named recipes chosen in the settings menu. A recipe
   is the collapsed scale per opening direction plus one `Animation` for each of size,
   corner radius and opacity, and a `Flourish` describing the gesture on arrival: tilt,
