@@ -48,6 +48,55 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
     /// 같은 내용을 다시 복사했는지 판정하기 위한 지문입니다.
     let fingerprint: String
 
+    /// 목록 맨 위에 붙박아 두었는지 여부입니다.
+    /// 고정한 항목은 개수 제한에 걸려 밀려나지 않습니다.
+    var isPinned: Bool = false
+
+    // 항목을 저장한 뒤에 `isPinned` 를 새로 넣었기 때문에, 예전에 저장해 둔 파일에는
+    // 이 값이 없습니다. 자동으로 만들어지는 해독기는 없는 값을 오류로 보기 때문에
+    // 직접 작성해서, 값이 없으면 고정되지 않은 것으로 읽도록 합니다.
+    private enum CodingKeys: String, CodingKey {
+        case id, kind, timestamp, text, blobPath, originalPath, preview, byteCount, fingerprint, isPinned
+    }
+
+    init(
+        id: UUID,
+        kind: ClipboardKind,
+        timestamp: Date,
+        text: String?,
+        blobPath: String?,
+        originalPath: String?,
+        preview: String,
+        byteCount: Int?,
+        fingerprint: String,
+        isPinned: Bool = false
+    ) {
+        self.id = id
+        self.kind = kind
+        self.timestamp = timestamp
+        self.text = text
+        self.blobPath = blobPath
+        self.originalPath = originalPath
+        self.preview = preview
+        self.byteCount = byteCount
+        self.fingerprint = fingerprint
+        self.isPinned = isPinned
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        kind = try container.decode(ClipboardKind.self, forKey: .kind)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        text = try container.decodeIfPresent(String.self, forKey: .text)
+        blobPath = try container.decodeIfPresent(String.self, forKey: .blobPath)
+        originalPath = try container.decodeIfPresent(String.self, forKey: .originalPath)
+        preview = try container.decode(String.self, forKey: .preview)
+        byteCount = try container.decodeIfPresent(Int.self, forKey: .byteCount)
+        fingerprint = try container.decode(String.self, forKey: .fingerprint)
+        isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+    }
+
     /// 드래그하거나 다시 복사할 때 사용할 실제 파일 위치를 돌려줍니다.
     /// - Parameter blobsDirectory: `blobs/` 폴더의 절대 경로입니다.
     func payloadURL(blobsDirectory: URL) -> URL? {
@@ -64,6 +113,11 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
             }
         }
         return nil
+    }
+
+    /// 파일이나 폴더를 Finder 에서 다룰 수 있는 항목인지 여부입니다.
+    var isRevealableInFinder: Bool {
+        kind == .file || kind == .image
     }
 
     /// 목록의 각 행에 표시할 SF Symbols 아이콘 이름입니다.

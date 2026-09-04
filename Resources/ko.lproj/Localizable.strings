@@ -23,3 +23,7 @@
 "animation.drawer" = "서랍";
 "animation.pop" = "팝";
 "animation.calm" = "잔잔하게";
+"row.pin" = "위에 고정";
+"row.unpin" = "고정 해제";
+"row.revealInFinder" = "Finder에서 보기";
+"row.open" = "열기";

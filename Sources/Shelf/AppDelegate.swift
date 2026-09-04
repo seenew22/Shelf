@@ -39,14 +39,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 화면 밖의 선반을 잡아 빼는 중일 때의 상태입니다.
     private var edgeDrag: EdgeDrag?
 
-    /// 잡아 빼는 중에 화면 안으로 미리 내밀어 두는 폭입니다.
-    /// 이만큼이 손잡이 노릇을 하며, 별도의 손잡이를 그리지 않고 선반 자체의 끝을 씁니다.
-    private static let edgeGripWidth: CGFloat = 30
-
-    /// 마우스를 당긴 거리에 견주어 선반이 따라 나오는 비율입니다.
-    /// 1 이면 손끝만큼만 나와서 답답하므로, 조금 더 크게 반응하도록 했습니다.
-    private static let edgePullGain: CGFloat = 2.4
-
     /// 화면 밖에서 잡아 빼고 있는 선반의 위치 정보입니다.
     private struct EdgeDrag {
         var edge: EdgeHoverMonitor.HorizontalEdge
@@ -226,13 +218,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 눈에 띄지 않을 만큼만 걸쳐 둔 자리에서 시작합니다.
         panel.position(atEdge: edge, on: screen, cursorHeight: cursorHeight, revealedWidth: 1)
         panel.orderFrontRegardless()
+        let reveal = preferences.panelAnimationStyle.edgeReveal
         panel.animate(
-            toRevealedWidth: Self.edgeGripWidth,
+            toRevealedWidth: preferences.panelAnimationStyle.edgeGripWidth,
             atEdge: edge,
             on: screen,
             cursorHeight: cursorHeight,
-            duration: 0.28,
-            timing: CAMediaTimingFunction(name: .easeOut)
+            duration: reveal.duration,
+            timing: CAMediaTimingFunction(
+                controlPoints: reveal.controlPoints.0, reveal.controlPoints.1,
+                reveal.controlPoints.2, reveal.controlPoints.3
+            )
         )
     }
 
@@ -243,8 +239,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateEdgeDrag(pullDistance: CGFloat) {
         guard let panel, let drag = edgeDrag else { return }
 
+        let style = preferences.panelAnimationStyle
         let revealed = min(
-            Self.edgeGripWidth + max(0, pullDistance) * Self.edgePullGain,
+            style.edgeGripWidth + max(0, pullDistance) * style.edgePullGain,
             ShelfPanel.fullyRevealedWidth
         )
         panel.animate(
@@ -385,7 +382,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
                 // NSEvent 자체를 격리 경계 너머로 넘기지 않도록 키 코드만 꺼내서 전달합니다.
                 let keyCode = event.keyCode
-                let handled = MainActor.assumeIsolated { self?.handleKeyDown(keyCode) ?? false }
+                let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).rawValue
+                let handled = MainActor.assumeIsolated {
+                    self?.handleKeyDown(keyCode, modifiers: modifiers) ?? false
+                }
                 return handled ? nil : event
             }
         }
@@ -450,8 +450,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 창이 떠 있는 동안의 키 입력을 처리합니다.
     /// - Returns: 우리가 처리했으면 true. 이때 해당 입력은 다른 곳으로 전달되지 않습니다.
-    private func handleKeyDown(_ keyCode: UInt16) -> Bool {
+    private func handleKeyDown(_ keyCode: UInt16, modifiers rawModifiers: UInt) -> Bool {
         let itemCount = store?.items.count ?? 0
+        let modifiers = NSEvent.ModifierFlags(rawValue: rawModifiers)
 
         switch keyCode {
         case 53: // Esc
@@ -467,8 +468,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return true
 
         case 36, 76: // Return, 숫자판 Enter
-            guard let item = store?.items[safe: selection.index] else { return true }
-            copyAndClose(item)
+            guard let store, let item = store.items[safe: selection.index] else { return true }
+            // Command 를 함께 누르면 복사 대신 Finder 에서 위치를 보여 줍니다.
+            if modifiers.contains(.command) {
+                guard item.isRevealableInFinder else { return true }
+                store.revealInFinder(item)
+                closePanel()
+            } else {
+                copyAndClose(item)
+            }
             return true
 
         default:

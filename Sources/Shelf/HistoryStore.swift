@@ -16,7 +16,7 @@ final class HistoryStore: ObservableObject {
     /// 동영상처럼 큰 파일을 복사했을 때 저장 공간이 급격히 늘어나는 상황을 막기 위한 장치입니다.
     static let maximumBlobByteCount = 50 * 1024 * 1024
 
-    /// 최신 항목이 앞에 오도록 정렬된 히스토리입니다.
+    /// 고정한 항목이 먼저 오고, 그 안에서는 최신 항목이 앞에 오도록 정렬된 히스토리입니다.
     @Published private(set) var items: [ClipboardItem] = []
 
     /// "몇 분 전" 표시를 계산할 때 쓰는 기준 시각입니다.
@@ -59,15 +59,25 @@ final class HistoryStore: ObservableObject {
         if let existingIndex = items.firstIndex(where: { $0.fingerprint == fingerprint }) {
             var existing = items.remove(at: existingIndex)
             existing.timestamp = Date()
-            items.insert(existing, at: 0)
+            insertInOrder(existing)
             save()
             return
         }
 
         guard let item = makeItem(from: capture, fingerprint: fingerprint) else { return }
-        items.insert(item, at: 0)
+        insertInOrder(item)
         enforceCapacityLimit()
         save()
+    }
+
+    /// 고정한 항목 뒤, 고정하지 않은 항목 중에서는 맨 앞에 넣습니다.
+    private func insertInOrder(_ item: ClipboardItem) {
+        if item.isPinned {
+            items.insert(item, at: 0)
+            return
+        }
+        let firstUnpinned = items.firstIndex { !$0.isPinned } ?? items.count
+        items.insert(item, at: firstUnpinned)
     }
 
     /// 원재료를 실제 저장 형태로 바꿉니다. 이미지와 파일은 이 과정에서 디스크에 기록됩니다.
@@ -167,6 +177,45 @@ final class HistoryStore: ObservableObject {
         item.payloadURL(blobsDirectory: blobsDirectory)
     }
 
+    /// Finder 에서 다룰 때 쓸 위치입니다.
+    ///
+    /// 파일 항목은 보관용 복사본이 아니라 원래 있던 자리를 보여 주어야 합니다.
+    /// 폴더를 다시 열려고 꺼낸 것인데 복사본이 열리면 쓸모가 없기 때문입니다.
+    func finderURL(for item: ClipboardItem) -> URL? {
+        if item.kind == .file, let originalPath = item.originalPath {
+            let original = URL(filePath: originalPath)
+            if FileManager.default.fileExists(atPath: original.path) {
+                return original
+            }
+        }
+        return payloadURL(for: item)
+    }
+
+    /// 항목에 딸린 파일을 Finder 에서 선택된 상태로 보여 줍니다.
+    func revealInFinder(_ item: ClipboardItem) {
+        guard let url = finderURL(for: item) else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    /// 항목에 딸린 파일이나 폴더를 기본 앱으로 엽니다.
+    func openWithDefaultApplication(_ item: ClipboardItem) {
+        guard let url = finderURL(for: item) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    /// 항목을 목록 맨 위에 붙박아 두거나, 붙박아 둔 것을 풉니다.
+    ///
+    /// 고정한 항목은 개수 제한에서 빠지므로, 자주 쓰는 폴더를 올려 두면
+    /// 새로 복사한 것들에 밀려 사라지지 않습니다.
+    func togglePin(_ item: ClipboardItem) {
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
+        var updated = items.remove(at: index)
+        updated.isPinned.toggle()
+        insertInOrder(updated)
+        enforceCapacityLimit()
+        save()
+    }
+
     // MARK: - 항목 삭제
 
     func remove(_ item: ClipboardItem) {
@@ -176,18 +225,23 @@ final class HistoryStore: ObservableObject {
         save()
     }
 
+    /// 고정하지 않은 항목을 모두 지웁니다. 고정한 항목은 남겨 둡니다.
     func removeAll() {
-        for item in items {
+        for item in items where !item.isPinned {
             deleteBlobDirectory(for: item)
         }
-        items.removeAll()
+        items.removeAll { !$0.isPinned }
         save()
     }
 
     /// 상한을 넘긴 만큼 오래된 항목부터 지우고, 딸린 복사본 파일도 함께 정리합니다.
+    ///
+    /// 고정한 항목은 세지도 않고 지우지도 않습니다. 밀려나지 않게 하려고 고정한 것이므로,
+    /// 상한 때문에 사라진다면 고정한 뜻이 없어집니다.
     private func enforceCapacityLimit() {
-        while items.count > Self.maximumItemCount {
-            let dropped = items.removeLast()
+        while items.count(where: { !$0.isPinned }) > Self.maximumItemCount {
+            guard let index = items.lastIndex(where: { !$0.isPinned }) else { return }
+            let dropped = items.remove(at: index)
             deleteBlobDirectory(for: dropped)
         }
     }
@@ -247,7 +301,13 @@ final class HistoryStore: ObservableObject {
         do {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
+            // 예전에 저장한 파일은 정렬 규칙이 달랐을 수 있으므로 다시 맞춰 둡니다.
             items = try decoder.decode([ClipboardItem].self, from: data)
+                .sorted { left, right in
+                    left.isPinned == right.isPinned
+                        ? left.timestamp > right.timestamp
+                        : left.isPinned
+                }
             enforceCapacityLimit()
         } catch {
             NSLog("Shelf: 히스토리를 읽지 못했습니다 — \(error.localizedDescription)")

@@ -44,14 +44,45 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// 화면 가장자리에서 미리 내밀어 두는 폭입니다. 이만큼이 잡는 자리가 됩니다.
+    var edgeGripWidth: CGFloat {
+        switch self {
+        case .droplet: 30
+        case .drawer: 24
+        case .pop: 38
+        case .calm: 22
+        }
+    }
+
+    /// 마우스를 당긴 거리에 견주어 선반이 따라 나오는 비율입니다.
+    /// 값이 클수록 손짓보다 크게 반응해서 가볍게 느껴지고, 작을수록 묵직하게 느껴집니다.
+    var edgePullGain: CGFloat {
+        switch self {
+        case .droplet: 2.4
+        case .drawer: 1.6
+        case .pop: 3.4
+        case .calm: 1.3
+        }
+    }
+
+    /// 화면 가장자리에서 선반 끝이 처음 나올 때의 움직임입니다.
+    var edgeReveal: (duration: TimeInterval, controlPoints: (Float, Float, Float, Float)) {
+        switch self {
+        case .droplet: (0.30, (0.25, 1.35, 0.40, 1))
+        case .drawer: (0.34, (0.30, 0.00, 0.30, 1))
+        case .pop: (0.18, (0.16, 1.90, 0.40, 1))
+        case .calm: (0.36, (0.33, 0.00, 0.40, 1))
+        }
+    }
+
     /// 가장자리에서 잡아 뺀 선반이 제자리에 놓일 때의 움직임입니다.
     /// 제어점의 두 번째 값이 1을 넘으면 제자리를 지나쳤다가 되돌아옵니다.
     var edgeSnap: (duration: TimeInterval, controlPoints: (Float, Float, Float, Float)) {
         switch self {
         case .droplet: (0.42, (0.18, 1.62, 0.42, 1))
         case .drawer: (0.34, (0.22, 1.14, 0.36, 1))
-        case .pop: (0.30, (0.16, 1.9, 0.38, 1))
-        case .calm: (0.26, (0.25, 1, 0.35, 1))
+        case .pop: (0.26, (0.14, 2.00, 0.36, 1))
+        case .calm: (0.30, (0.25, 1.00, 0.35, 1))
         }
     }
 }

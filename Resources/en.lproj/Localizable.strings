@@ -23,3 +23,7 @@
 "animation.drawer" = "Drawer";
 "animation.pop" = "Pop";
 "animation.calm" = "Calm";
+"row.pin" = "Pin to top";
+"row.unpin" = "Unpin";
+"row.revealInFinder" = "Show in Finder";
+"row.open" = "Open";

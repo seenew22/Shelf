@@ -130,10 +130,16 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   count changes, read the current pasteboard, classify the type, apply privacy rules,
   dedupe, and prepend to the store.
 - **`ClipboardItem`** — model: stable `id`, `kind` (`.text` / `.image` / `.file`),
-  text payload, blob path, original path, `timestamp`, preview, and a content
-  fingerprint used for dedupe.
+  text payload, blob path, original path, `timestamp`, preview, a content
+  fingerprint used for dedupe, and `isPinned`. It decodes by hand rather than by
+  synthesis, so that a field added after people already have history on disk reads
+  as its default instead of failing the whole file.
 - **`HistoryStore`** — `ObservableObject`: ordered list, **capped at 50**, dedupe on
   re-copy (existing match moves to top), persists to disk, loads on launch.
+  Pinned items sort ahead of the rest and are excluded from the cap and from
+  "clear all" - a pin that the cap can still evict is not a pin. `finderURL(for:)`
+  resolves a file item to where it actually lives rather than to the archived copy;
+  reopening a folder is the whole point, and the copy is useless for that.
   Files over 50 MB are recorded by original path only, with no blob copy.
 - **`LocalizationManager`** — the UI ships in Korean and English, switchable from a
   globe button in the panel header and persisted in `UserDefaults`. Strings live in

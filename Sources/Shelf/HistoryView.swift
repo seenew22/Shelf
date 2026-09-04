@@ -177,6 +177,9 @@ struct HistoryView: View {
                                     copiedItemID = item.id
                                     onCopy(item)
                                 },
+                                onTogglePin: { store.togglePin(item) },
+                                onReveal: { store.revealInFinder(item) },
+                                onOpen: { store.openWithDefaultApplication(item) },
                                 onDelete: { store.remove(item) }
                             )
                             .id(item.id)
@@ -242,6 +245,9 @@ private struct HistoryRow: View {
 
     let onHover: () -> Void
     let onCopy: () -> Void
+    let onTogglePin: () -> Void
+    let onReveal: () -> Void
+    let onOpen: () -> Void
     let onDelete: () -> Void
 
     /// 목록 왼쪽 아이콘 칸의 한 변 길이입니다.
@@ -272,15 +278,28 @@ private struct HistoryRow: View {
                     .foregroundStyle(Color.accentColor)
                     .labelStyle(.titleAndIcon)
                     .transition(.opacity)
-            } else if isHovering {
-                Button {
-                    onDelete()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.tertiary)
+            } else {
+                // 고정한 항목은 마우스를 올리지 않아도 표시가 남아 있어야 합니다.
+                if item.isPinned || isHovering {
+                    Button(action: onTogglePin) {
+                        if item.isPinned {
+                            Image(systemName: "pin.fill").foregroundStyle(Color.accentColor)
+                        } else {
+                            Image(systemName: "pin").foregroundStyle(.tertiary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help(l10n[item.isPinned ? .rowUnpin : .rowPin])
                 }
-                .buttonStyle(.plain)
-                .help(l10n[.rowDelete])
+
+                if isHovering {
+                    Button(action: onDelete) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(l10n[.rowDelete])
+                }
             }
         }
         .padding(.horizontal, 12)
@@ -295,8 +314,25 @@ private struct HistoryRow: View {
         }
         .onTapGesture(perform: onCopy)
         .onDrag(makeItemProvider)
+        .contextMenu { contextMenu }
         .task(id: item.id) { await loadThumbnailIfNeeded() }
         .help(dragHint)
+    }
+
+    @ViewBuilder
+    private var contextMenu: some View {
+        Button(l10n[item.isPinned ? .rowUnpin : .rowPin], action: onTogglePin)
+
+        // 파일과 이미지만 Finder 에서 다룰 수 있습니다. 텍스트에는 딸린 파일이 없습니다.
+        if item.isRevealableInFinder {
+            Divider()
+            Button(l10n[.rowRevealInFinder], action: onReveal)
+                .keyboardShortcut(.return, modifiers: .command)
+            Button(l10n[.rowOpen], action: onOpen)
+        }
+
+        Divider()
+        Button(l10n[.rowDelete], role: .destructive, action: onDelete)
     }
 
     private var rowBackground: Color {
