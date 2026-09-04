@@ -62,9 +62,28 @@ final class ClipboardMonitor {
 
         guard !containsPrivacyMarker() else { return }
 
+        // 어느 앱에서 복사한 것인지는 지금 이 순간에만 알 수 있습니다.
+        let source = currentSourceApplication()
         for capture in readCaptures() {
-            store.insert(capture)
+            store.insert(capture, from: source)
         }
+    }
+
+    /// 지금 앞에 있는 앱을 알아냅니다.
+    ///
+    /// 이 앱은 다른 앱의 포커스를 빼앗지 않으므로, 여기서 나오는 것은 언제나
+    /// 사용자가 실제로 복사한 그 앱입니다.
+    private func currentSourceApplication() -> SourceApplication? {
+        guard
+            let application = NSWorkspace.shared.frontmostApplication,
+            let bundleIdentifier = application.bundleIdentifier
+        else {
+            return nil
+        }
+        return SourceApplication(
+            bundleIdentifier: bundleIdentifier,
+            name: application.localizedName ?? bundleIdentifier
+        )
     }
 
     /// 민감한 내용임을 알리는 표식이 붙어 있는지 확인합니다. 대소문자는 구분하지 않습니다.

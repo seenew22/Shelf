@@ -19,6 +19,23 @@ final class HistoryStore: ObservableObject {
     /// 고정한 항목이 먼저 오고, 그 안에서는 최신 항목이 앞에 오도록 정렬된 히스토리입니다.
     @Published private(set) var items: [ClipboardItem] = []
 
+    /// 목록을 걸러내는 검색어입니다. 비어 있으면 모두 보여 줍니다.
+    @Published var searchQuery = ""
+
+    /// 검색어에 걸러진, 지금 화면에 보여야 하는 항목들입니다.
+    ///
+    /// 텍스트는 본문 전체를, 파일과 이미지는 이름을 대상으로 찾습니다.
+    /// 대소문자는 구분하지 않습니다.
+    var visibleItems: [ClipboardItem] {
+        let query = searchQuery.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return items }
+        return items.filter { item in
+            if item.preview.localizedCaseInsensitiveContains(query) { return true }
+            if let text = item.text, text.localizedCaseInsensitiveContains(query) { return true }
+            return false
+        }
+    }
+
     /// "몇 분 전" 표시를 계산할 때 쓰는 기준 시각입니다.
     /// 창을 열 때마다 갱신해서, 창이 닫혀 있던 동안 흐른 시간이 반영되도록 합니다.
     @Published private(set) var referenceDate = Date()
@@ -43,9 +60,10 @@ final class HistoryStore: ObservableObject {
         load()
     }
 
-    /// 시간 표시의 기준 시각을 현재로 맞춥니다.
+    /// 시간 표시의 기준 시각을 현재로 맞추고, 지난번 검색어를 비웁니다.
     func refreshReferenceDate() {
         referenceDate = Date()
+        searchQuery = ""
     }
 
     // MARK: - 항목 추가
@@ -53,7 +71,7 @@ final class HistoryStore: ObservableObject {
     /// 클립보드에서 읽어온 원재료를 히스토리에 넣습니다.
     ///
     /// 같은 내용이 이미 들어 있으면 새로 추가하지 않고 맨 위로 끌어올립니다.
-    func insert(_ capture: ClipboardCapture) {
+    func insert(_ capture: ClipboardCapture, from source: SourceApplication? = nil) {
         let fingerprint = Self.fingerprint(for: capture)
 
         if let existingIndex = items.firstIndex(where: { $0.fingerprint == fingerprint }) {
@@ -64,7 +82,7 @@ final class HistoryStore: ObservableObject {
             return
         }
 
-        guard let item = makeItem(from: capture, fingerprint: fingerprint) else { return }
+        guard let item = makeItem(from: capture, fingerprint: fingerprint, source: source) else { return }
         insertInOrder(item)
         enforceCapacityLimit()
         save()
@@ -81,7 +99,11 @@ final class HistoryStore: ObservableObject {
     }
 
     /// 원재료를 실제 저장 형태로 바꿉니다. 이미지와 파일은 이 과정에서 디스크에 기록됩니다.
-    private func makeItem(from capture: ClipboardCapture, fingerprint: String) -> ClipboardItem? {
+    private func makeItem(
+        from capture: ClipboardCapture,
+        fingerprint: String,
+        source: SourceApplication?
+    ) -> ClipboardItem? {
         let id = UUID()
 
         switch capture {
@@ -95,7 +117,8 @@ final class HistoryStore: ObservableObject {
                 originalPath: nil,
                 preview: Self.preview(forText: string),
                 byteCount: nil,
-                fingerprint: fingerprint
+                fingerprint: fingerprint,
+                source: source
             )
 
         case .image(let data, let fileExtension):
@@ -110,7 +133,8 @@ final class HistoryStore: ObservableObject {
                 originalPath: nil,
                 preview: "",
                 byteCount: data.count,
-                fingerprint: fingerprint
+                fingerprint: fingerprint,
+                source: source
             )
 
         case .file(let url):
@@ -132,7 +156,8 @@ final class HistoryStore: ObservableObject {
                 originalPath: url.path,
                 preview: fileName,
                 byteCount: byteCount,
-                fingerprint: fingerprint
+                fingerprint: fingerprint,
+                source: source
             )
         }
     }

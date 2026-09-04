@@ -28,3 +28,5 @@
 "row.revealInFinder" = "Show in Finder";
 "row.open" = "Open";
 "header.openFinder" = "Open Finder";
+"search.placeholder" = "Search";
+"search.empty" = "Nothing matches";

@@ -123,9 +123,14 @@ final class PanelPresentation: ObservableObject {
         collapseDuration = 0.12
     }
 
-    func collapse() {
-        withAnimation(.easeIn(duration: collapseDuration)) {
+    /// 고른 방식에 맞는 몸짓으로 물러납니다.
+    func collapse(with style: PanelAnimationStyle) {
+        let departure = style.departure
+        collapseDuration = departure.duration
+
+        withAnimation(departure.animation) {
             applyCollapsedState()
+            rotation = .degrees(departure.tiltDegrees)
         }
     }
 

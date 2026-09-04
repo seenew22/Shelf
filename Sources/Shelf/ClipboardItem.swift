@@ -7,6 +7,14 @@ enum ClipboardKind: String, Codable {
     case file
 }
 
+/// 복사가 일어난 시점에 앞에 있던 앱입니다.
+///
+/// 나중에 목록을 훑을 때 "어디서 복사한 것인지"가 내용 못지않게 강한 단서가 됩니다.
+struct SourceApplication: Equatable, Sendable {
+    var bundleIdentifier: String
+    var name: String
+}
+
 /// 클립보드를 읽어서 만들어낸, 아직 히스토리에 들어가기 전의 원재료입니다.
 ///
 /// `ClipboardMonitor`가 이 값을 만들어서 `HistoryStore`에 넘기면,
@@ -52,11 +60,16 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
     /// 고정한 항목은 개수 제한에 걸려 밀려나지 않습니다.
     var isPinned: Bool = false
 
+    /// 이 내용을 복사할 때 앞에 있던 앱입니다. 알아내지 못했으면 nil 입니다.
+    let sourceBundleIdentifier: String?
+    let sourceAppName: String?
+
     // 항목을 저장한 뒤에 `isPinned` 를 새로 넣었기 때문에, 예전에 저장해 둔 파일에는
     // 이 값이 없습니다. 자동으로 만들어지는 해독기는 없는 값을 오류로 보기 때문에
     // 직접 작성해서, 값이 없으면 고정되지 않은 것으로 읽도록 합니다.
     private enum CodingKeys: String, CodingKey {
         case id, kind, timestamp, text, blobPath, originalPath, preview, byteCount, fingerprint, isPinned
+        case sourceBundleIdentifier, sourceAppName
     }
 
     init(
@@ -69,7 +82,8 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
         preview: String,
         byteCount: Int?,
         fingerprint: String,
-        isPinned: Bool = false
+        isPinned: Bool = false,
+        source: SourceApplication? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -81,6 +95,8 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
         self.byteCount = byteCount
         self.fingerprint = fingerprint
         self.isPinned = isPinned
+        self.sourceBundleIdentifier = source?.bundleIdentifier
+        self.sourceAppName = source?.name
     }
 
     init(from decoder: Decoder) throws {
@@ -95,6 +111,8 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
         byteCount = try container.decodeIfPresent(Int.self, forKey: .byteCount)
         fingerprint = try container.decode(String.self, forKey: .fingerprint)
         isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+        sourceBundleIdentifier = try container.decodeIfPresent(String.self, forKey: .sourceBundleIdentifier)
+        sourceAppName = try container.decodeIfPresent(String.self, forKey: .sourceAppName)
     }
 
     /// 드래그하거나 다시 복사할 때 사용할 실제 파일 위치를 돌려줍니다.

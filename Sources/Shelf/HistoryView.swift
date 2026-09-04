@@ -32,13 +32,20 @@ struct HistoryView: View {
     /// 방금 클릭해서 클립보드에 올린 항목입니다. 창이 닫히기 직전에 잠깐 표시해 줍니다.
     @State private var copiedItemID: UUID?
 
+    /// 창을 열면 곧바로 타이핑해서 찾을 수 있도록 검색란에 초점을 둡니다.
+    @FocusState private var isSearchFocused: Bool
+
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
+            searchField
+            Divider()
 
             if store.items.isEmpty {
                 emptyState
+            } else if store.visibleItems.isEmpty {
+                noMatchesState
             } else {
                 list
             }
@@ -71,7 +78,11 @@ struct HistoryView: View {
         .padding(ShelfPanel.shadowMargin)
         .environment(\.locale, l10n.locale)
         // 창을 열 때마다 기준 시각이 갱신되므로, 그 시점에 지난번 복사 표시를 지웁니다.
-        .onChange(of: store.referenceDate) { copiedItemID = nil }
+        .onChange(of: store.referenceDate) {
+            copiedItemID = nil
+            isSearchFocused = true
+        }
+        .onChange(of: store.searchQuery) { selection.reset() }
     }
 
     /// 번들에 기록된 버전과, 빌드에 사용한 git 커밋 해시입니다.
@@ -113,6 +124,43 @@ struct HistoryView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+
+            TextField(l10n[.searchPlaceholder], text: $store.searchQuery)
+                .textFieldStyle(.plain)
+                .font(.callout)
+                .focused($isSearchFocused)
+
+            if !store.searchQuery.isEmpty {
+                Button {
+                    store.searchQuery = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+    }
+
+    private var noMatchesState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 24))
+                .foregroundStyle(.tertiary)
+            Text(l10n[.searchEmpty])
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// Finder 를 앞으로 불러옵니다. 항목과 상관없이 그냥 파일 탐색으로 넘어가고 싶을 때 씁니다.
@@ -188,7 +236,7 @@ struct HistoryView: View {
             ScrollViewReader { scrollProxy in
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(Array(store.items.enumerated()), id: \.element.id) { position, item in
+                        ForEach(Array(store.visibleItems.enumerated()), id: \.element.id) { position, item in
                             HistoryRow(
                                 item: item,
                                 payloadURL: store.payloadURL(for: item),
@@ -213,15 +261,16 @@ struct HistoryView: View {
                         }
                     }
                     // 항목을 지우거나 새로 복사했을 때 목록이 툭 끊기지 않고 이어지게 합니다.
-                    .animation(.spring(duration: 0.26, bounce: 0.3), value: store.items)
+                    .animation(.spring(duration: 0.26, bounce: 0.3), value: store.visibleItems)
                 }
                 // 키보드로 옮겼을 때만 목록이 따라 움직입니다.
                 // 마우스로 가리켰을 때도 움직이면 항목이 커서 밑에서 빠져나가 버립니다.
                 // 또한 화면 가운데로 끌어오지 않고, 보이게 되는 데 필요한 만큼만 움직입니다.
                 .onChange(of: selection.scrollRequestID) {
-                    guard store.items.indices.contains(selection.index) else { return }
+                    let visible = store.visibleItems
+                    guard visible.indices.contains(selection.index) else { return }
                     withAnimation(.easeOut(duration: 0.12)) {
-                        scrollProxy.scrollTo(store.items[selection.index].id)
+                        scrollProxy.scrollTo(visible[selection.index].id)
                     }
                 }
             }
@@ -294,9 +343,19 @@ private struct HistoryRow: View {
                     .font(.callout)
                     .lineLimit(2)
                     .truncationMode(.tail)
-                Text(timestampText)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                HStack(spacing: 4) {
+                    // 어디서 복사했는지는 내용 못지않게 강한 단서라서, 시각과 나란히 둡니다.
+                    if let bundleIdentifier = item.sourceBundleIdentifier,
+                       let icon = SourceAppIcon.icon(forBundleIdentifier: bundleIdentifier) {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .frame(width: 12, height: 12)
+                            .help(item.sourceAppName ?? bundleIdentifier)
+                    }
+                    Text(timestampText)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 

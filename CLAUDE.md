@@ -131,7 +131,7 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   dedupe, and prepend to the store.
 - **`ClipboardItem`** — model: stable `id`, `kind` (`.text` / `.image` / `.file`),
   text payload, blob path, original path, `timestamp`, preview, a content
-  fingerprint used for dedupe, and `isPinned`. It decodes by hand rather than by
+  fingerprint used for dedupe, `isPinned`, and which app was frontmost at capture. It decodes by hand rather than by
   synthesis, so that a field added after people already have history on disk reads
   as its default instead of failing the whole file.
 - **`HistoryStore`** — `ObservableObject`: ordered list, **capped at 50**, dedupe on

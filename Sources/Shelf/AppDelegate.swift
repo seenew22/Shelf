@@ -330,8 +330,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pendingCloseTask?.cancel()
         pendingCloseTask = nil
 
-        // 먼저 접히는 움직임을 시작하고, 다 접힌 다음에 창을 실제로 감춥니다.
-        presentation.collapse()
+        // 먼저 물러나는 움직임을 시작하고, 다 물러난 다음에 창을 실제로 감춥니다.
+        presentation.collapse(with: preferences.panelAnimationStyle)
         let collapseDuration = presentation.collapseDuration
         hideTask?.cancel()
         hideTask = Task { [weak self] in
@@ -454,11 +454,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 창이 떠 있는 동안의 키 입력을 처리합니다.
     /// - Returns: 우리가 처리했으면 true. 이때 해당 입력은 다른 곳으로 전달되지 않습니다.
     private func handleKeyDown(_ keyCode: UInt16, modifiers rawModifiers: UInt) -> Bool {
-        let itemCount = store?.items.count ?? 0
+        let itemCount = store?.visibleItems.count ?? 0
         let modifiers = NSEvent.ModifierFlags(rawValue: rawModifiers)
 
         switch keyCode {
         case 53: // Esc
+            // 검색 중이라면 먼저 검색어만 비웁니다. 한 번 더 누르면 창이 닫힙니다.
+            if let store, !store.searchQuery.isEmpty {
+                store.searchQuery = ""
+                selection.reset()
+                return true
+            }
             closePanel()
             return true
 
@@ -471,7 +477,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return true
 
         case 36, 76: // Return, 숫자판 Enter
-            guard let store, let item = store.items[safe: selection.index] else { return true }
+            guard let store, let item = store.visibleItems[safe: selection.index] else { return true }
             // Command 를 함께 누르면 복사 대신 Finder 에서 위치를 보여 줍니다.
             if modifiers.contains(.command) {
                 guard item.isRevealableInFinder else { return true }

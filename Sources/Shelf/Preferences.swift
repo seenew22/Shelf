@@ -71,6 +71,19 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
         var rowStagger: TimeInterval
     }
 
+    /// 물러날 때의 몸짓입니다. 나타날 때와 짝이 맞아야 같은 성격으로 읽힙니다.
+    ///
+    /// 기울기는 나타날 때와 반대로 줍니다. 들어올 때 왼쪽으로 기울었다면 나갈 때는
+    /// 오른쪽으로 기울면서 물러나야, 한 번 왔다가 되돌아간 것처럼 보입니다.
+    var departure: (tiltDegrees: Double, animation: Animation, duration: TimeInterval) {
+        switch self {
+        case .droplet: (0, .spring(duration: 0.26, bounce: 0.25), 0.26)
+        case .drawer: (0, .easeIn(duration: 0.20), 0.20)
+        case .pop: (9, .spring(duration: 0.22, bounce: 0.35), 0.22)
+        case .calm: (0, .easeOut(duration: 0.14), 0.14)
+        }
+    }
+
     /// 도착한 뒤 제자리를 찾아가는 움직임입니다.
     var settle: Animation {
         switch self {
