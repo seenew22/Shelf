@@ -46,6 +46,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 닫을 때 같은 자리로 되돌아가게 하기 위한 것입니다.
     private var edgeOrigin: EdgeDrag?
 
+    /// 지금 떠 있는 창이 어떤 방식으로 나타났는지입니다.
+    /// 설정에서 방식을 바꾸면 같은 자리에서 그 움직임을 다시 보여 주는 데 씁니다.
+    private var lastEntrance: Entrance?
+
+    /// 창이 나타난 경위입니다.
+    private enum Entrance {
+        /// 단축키나 메뉴 바 아이콘으로 펼쳐졌습니다.
+        case unfolded(ShelfPanel.SlideOrigin)
+        /// 화면 가장자리에서 끌려 나왔습니다.
+        case pulledFromEdge(hinge: UnitPoint)
+    }
+
     /// 화면 밖에서 잡아 빼고 있는 선반의 위치 정보입니다.
     private struct EdgeDrag {
         var edge: EdgeHoverMonitor.HorizontalEdge
@@ -139,6 +151,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         preferences.onEdgeOpenModeChanged = { [weak self] mode in
             self?.edgeHoverMonitor.update(mode: mode)
         }
+        preferences.onPanelAnimationStyleChanged = { [weak self] style in
+            self?.replayEntrance(with: style)
+        }
         edgeHoverMonitor.update(mode: preferences.edgeOpenMode)
         edgeHoverMonitor.update(side: preferences.edgeHoverSide)
     }
@@ -197,6 +212,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 접힌 모습이 한 번 그려진 다음에 펼쳐져야 움직임이 보입니다.
         // 곧바로 펼치면 이미 펼쳐진 상태로 처음 그려져서 아무 움직임도 나타나지 않습니다.
+        lastEntrance = .unfolded(slideOrigin)
         Task { @MainActor [weak self] in
             guard let self else { return }
             self.presentation.expand(from: slideOrigin, style: self.preferences.panelAnimationStyle)
@@ -321,10 +337,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         // 다 꺼내진 순간에만 방식에 맞는 착지 몸짓을 줍니다.
-        presentation.land(
-            with: preferences.panelAnimationStyle,
-            hingedAt: edge == .left ? .leading : .trailing
-        )
+        let hinge: UnitPoint = edge == .left ? .leading : .trailing
+        lastEntrance = .pulledFromEdge(hinge: hinge)
+        presentation.land(with: preferences.panelAnimationStyle, hingedAt: hinge)
 
         panel.makeKey()
         isPanelPresented = true
@@ -344,6 +359,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func closePanel() {
+        lastEntrance = nil
         activationUnlockTask?.cancel()
         activationUnlockTask = nil
         selection.resumeActivation()
@@ -448,6 +464,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 return handled ? nil : event
             }
+        }
+    }
+
+    /// 방식을 바꾸면 창이 떠 있는 자리에서 그 움직임을 곧바로 다시 보여 줍니다.
+    ///
+    /// 이름만 보고 고르라고 하면 아홉 가지를 하나씩 열어 보며 확인해야 합니다.
+    /// 고르는 순간 그 자리에서 다시 나타나면, 그것이 곧 미리보기가 됩니다.
+    private func replayEntrance(with style: PanelAnimationStyle) {
+        guard isPanelPresented, let lastEntrance else { return }
+
+        switch lastEntrance {
+        case .unfolded(let origin):
+            presentation.expand(from: origin, style: style)
+        case .pulledFromEdge(let hinge):
+            presentation.land(with: style, hingedAt: hinge)
         }
     }
 

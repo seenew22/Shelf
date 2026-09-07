@@ -60,6 +60,7 @@ enum StringKey: String {
     case menuEdgeHover = "menu.edgeHover"
     case menuSettings = "menu.settings"
     case menuAnimation = "menu.animation"
+    case menuMoreAnimations = "menu.moreAnimations"
     case animationDroplet = "animation.droplet"
     case animationDrawer = "animation.drawer"
     case animationPop = "animation.pop"

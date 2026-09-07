@@ -62,6 +62,20 @@ enum PanelAnimationStyle: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
+    /// 설정 메뉴에 바로 보여 줄 방식인지 여부입니다.
+    ///
+    /// 아홉 가지를 한 줄로 늘어놓으면 고르기보다 읽는 일이 됩니다. 성격이 뚜렷하게
+    /// 갈리는 넷만 앞에 두고, 나머지는 하위 메뉴로 내립니다.
+    var isPrimary: Bool {
+        switch self {
+        case .droplet, .drawer, .pop, .calm: true
+        case .door, .spin, .bounce, .rubber, .unfold: false
+        }
+    }
+
+    static var primaryCases: [PanelAnimationStyle] { allCases.filter(\.isPrimary) }
+    static var secondaryCases: [PanelAnimationStyle] { allCases.filter { !$0.isPrimary } }
+
     var stringKey: StringKey {
         switch self {
         case .droplet: .animationDroplet
@@ -294,6 +308,7 @@ final class Preferences: ObservableObject {
         didSet {
             guard panelAnimationStyle != oldValue else { return }
             UserDefaults.standard.set(panelAnimationStyle.rawValue, forKey: Self.animationStyleKey)
+            onPanelAnimationStyleChanged?(panelAnimationStyle)
         }
     }
 
@@ -322,6 +337,9 @@ final class Preferences: ObservableObject {
     /// 설정이 바뀌었을 때 감시자를 켜거나 끄기 위해 앱 쪽에서 연결해 둡니다.
     var onEdgeHoverSideChanged: ((EdgeHoverSide) -> Void)?
     var onEdgeOpenModeChanged: ((EdgeOpenMode) -> Void)?
+
+    /// 방식을 고르면 곧바로 그 움직임을 다시 보여 주기 위해 앱 쪽에서 연결해 둡니다.
+    var onPanelAnimationStyleChanged: ((PanelAnimationStyle) -> Void)?
 
     init() {
         let storedSide = UserDefaults.standard.string(forKey: Self.edgeHoverKey)

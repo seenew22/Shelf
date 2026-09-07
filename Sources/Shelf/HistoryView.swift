@@ -41,9 +41,9 @@ struct HistoryView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
+            separator
             searchField
-            Divider()
+            separator
 
             if store.items.isEmpty {
                 emptyState
@@ -53,7 +53,7 @@ struct HistoryView: View {
                 list
             }
 
-            Divider()
+            separator
             footer
         }
         .frame(width: ShelfPanel.contentWidth, height: ShelfPanel.contentHeight)
@@ -63,7 +63,7 @@ struct HistoryView: View {
         .clipShape(cardShape)
         .overlay {
             cardShape.strokeBorder(
-                isDropTargeted ? Color.accentColor : Color.primary.opacity(0.18),
+                isDropTargeted ? ShelfPalette.accent : ShelfPalette.cardBorder,
                 lineWidth: isDropTargeted ? 2 : 1
             )
         }
@@ -142,6 +142,14 @@ struct HistoryView: View {
 
     // MARK: - 구성 요소
 
+    /// 머리글과 바닥글을 목록과 나누는 선입니다.
+    /// 기본 구분선은 화면마다 두께와 색이 달라서, 직접 그려 두께를 고정합니다.
+    private var separator: some View {
+        Rectangle()
+            .fill(ShelfPalette.separator)
+            .frame(height: 1)
+    }
+
     private var header: some View {
         HStack(spacing: 8) {
             Text("Shelf")
@@ -194,7 +202,7 @@ struct HistoryView: View {
                 Text(l10n[.dropHint])
                     .font(.callout)
             }
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(ShelfPalette.accent)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(.regularMaterial)
             .transition(.opacity)
@@ -276,7 +284,7 @@ struct HistoryView: View {
             preferences.keepsPanelOpen.toggle()
         } label: {
             if preferences.keepsPanelOpen {
-                Image(systemName: "lock.fill").foregroundStyle(Color.accentColor)
+                Image(systemName: "lock.fill").foregroundStyle(ShelfPalette.accent)
             } else {
                 Image(systemName: "lock.open").foregroundStyle(.secondary)
             }
@@ -315,11 +323,21 @@ struct HistoryView: View {
             .disabled(preferences.edgeHoverSide == .off)
 
             Picker(l10n[.menuAnimation], selection: $preferences.panelAnimationStyle) {
-                ForEach(PanelAnimationStyle.allCases) { style in
+                ForEach(PanelAnimationStyle.primaryCases) { style in
                     Text(l10n[style.stringKey]).tag(style)
                 }
             }
             .pickerStyle(.inline)
+
+            // 나머지는 하위 메뉴로 내려 둡니다. 고른 것이 이 안에 있으면 여기에 표시됩니다.
+            Menu(l10n[.menuMoreAnimations]) {
+                Picker(l10n[.menuAnimation], selection: $preferences.panelAnimationStyle) {
+                    ForEach(PanelAnimationStyle.secondaryCases) { style in
+                        Text(l10n[style.stringKey]).tag(style)
+                    }
+                }
+                .pickerStyle(.inline)
+            }
 
             Picker(l10n[.menuLanguage], selection: $l10n.language) {
                 ForEach(AppLanguage.allCases) { language in
@@ -368,7 +386,7 @@ struct HistoryView: View {
             let referenceDate = max(context.date, store.referenceDate)
             ScrollViewReader { scrollProxy in
                 ScrollView {
-                    LazyVStack(spacing: 0) {
+                    LazyVStack(spacing: 2) {
                         ForEach(Array(store.visibleItems.enumerated()), id: \.element.id) { position, item in
                             HistoryRow(
                                 item: item,
@@ -397,9 +415,10 @@ struct HistoryView: View {
                             )
                             .id(item.id)
                             .transition(.opacity.combined(with: .move(edge: .top)))
-                            Divider().padding(.leading, HistoryRow.iconSide + 22)
                         }
                     }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
                     // 항목을 지우거나 새로 복사했을 때 목록이 툭 끊기지 않고 이어지게 합니다.
                     .animation(.spring(duration: 0.26, bounce: 0.3), value: store.visibleItems)
                 }
@@ -440,7 +459,8 @@ struct HistoryView: View {
 
             Button(l10n[.footerQuit], action: onQuit)
         }
-        .buttonStyle(.link)
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
         .font(.caption)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -508,7 +528,7 @@ private struct HistoryRow: View {
             if isCopied {
                 Label(l10n[.rowCopied], systemImage: "checkmark.circle.fill")
                     .font(.caption)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(ShelfPalette.accent)
                     .labelStyle(.titleAndIcon)
                     .transition(.opacity)
             } else {
@@ -516,7 +536,7 @@ private struct HistoryRow: View {
                 if item.isPinned || isHovering {
                     Button(action: onTogglePin) {
                         if item.isPinned {
-                            Image(systemName: "pin.fill").foregroundStyle(Color.accentColor)
+                            Image(systemName: "pin.fill").foregroundStyle(ShelfPalette.accent)
                         } else {
                             Image(systemName: "pin").foregroundStyle(.tertiary)
                         }
@@ -535,12 +555,13 @@ private struct HistoryRow: View {
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
         .opacity(revealProgress)
         .offset(x: (1 - revealProgress) * 16)
         .contentShape(Rectangle())
-        .background(rowBackground)
+        // 화면 폭을 가득 채우는 띠보다, 안쪽으로 들어간 둥근 바탕이 훨씬 정돈되어 보입니다.
+        .background(rowBackground, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
         .animation(.spring(duration: 0.24, bounce: 0.45), value: isCopied)
         .onHover { hovering in
             isHovering = hovering
@@ -571,8 +592,8 @@ private struct HistoryRow: View {
     }
 
     private var rowBackground: Color {
-        if isCopied { return Color.accentColor.opacity(0.22) }
-        return isSelected ? Color.primary.opacity(0.08) : Color.clear
+        if isCopied { return ShelfPalette.confirmationBackground }
+        return isSelected ? ShelfPalette.selectionBackground : Color.clear
     }
 
     @ViewBuilder
@@ -585,7 +606,7 @@ private struct HistoryRow: View {
                 // 흰 바탕에 가까운 이미지도 배경과 구분되도록 옅은 테두리를 둡니다.
                 .overlay {
                     RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(Color.primary.opacity(0.15), lineWidth: 0.5)
+                        .strokeBorder(ShelfPalette.thumbnailBorder, lineWidth: 0.5)
                 }
         } else {
             Image(systemName: item.symbolName)

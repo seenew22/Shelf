@@ -103,7 +103,18 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   there - copying something the user never pointed at. Row activation is therefore
   locked from the moment an edge drag commits until the button is actually observed
   to release, with a timeout so a missed release cannot lock it forever.
-- **`PanelAnimationStyle`** — six named recipes chosen in the settings menu. A recipe
+- **`ShelfPalette`** — every colour lives here. Structure (selection, borders,
+  separators) carries no hue at all, only lightness, so the panel never argues with
+  whatever is behind it; colour is spent on exactly three moments - copied, pinned,
+  ready to receive - and all three share one muted teal. The system accent was
+  deliberately dropped: it is the same blue every app uses, it already means "link"
+  and "selected" elsewhere, and leaning on it is what makes an interface look
+  untouched.
+- **`PanelAnimationStyle`** — nine named recipes; the four with the most distinct
+  characters sit in the settings menu and the rest live under a submenu, because
+  nine in a row is something you read rather than choose. Changing the style replays
+  the entrance on the spot, which is the preview - names alone tell you nothing about
+  how a motion feels. A recipe
   is the collapsed scale per opening direction plus one `Animation` for each of size,
   corner radius and opacity, and a `Flourish` describing the gesture on arrival: tilt,
   squash, hinge angle, and how much the rows stagger.
