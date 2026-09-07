@@ -83,6 +83,10 @@ if ! git diff --quiet HEAD 2>/dev/null; then
 fi
 plutil -replace CFBundleVersion -string "$GIT_REVISION" "${BUNDLE}/Contents/Info.plist"
 
+# 앱이 자기 소스가 어디 있는지 알아야 스스로 새 버전을 받아올 수 있습니다.
+plutil -replace ShelfSourceDirectory -string "$PWD" "${BUNDLE}/Contents/Info.plist" 2>/dev/null \
+	|| plutil -insert ShelfSourceDirectory -string "$PWD" "${BUNDLE}/Contents/Info.plist"
+
 # 언어별 문자열 폴더를 번들에 넣습니다. 언어를 추가하면 자동으로 함께 복사됩니다.
 shopt -s nullglob
 for language_directory in Resources/*.lproj; do

@@ -75,6 +75,7 @@ enum StringKey: String {
     case backgroundForest = "background.forest"
     case backgroundPaper = "background.paper"
     case backgroundMist = "background.mist"
+    case menuUpdate = "menu.update"
     case menuLanguage = "menu.language"
     case menuEdgeHover = "menu.edgeHover"
     case menuSettings = "menu.settings"

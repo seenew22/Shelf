@@ -13,7 +13,18 @@
 set -euo pipefail
 
 REPOSITORY="${SHELF_REPOSITORY:-https://github.com/seenew22/Shelf.git}"
-SOURCE_DIR="${SHELF_SOURCE_DIR:-$HOME/.shelf}"
+
+# 이 스크립트가 이미 소스 안에 들어 있다면 그 자리를 그대로 씁니다.
+# 그러지 않으면 앱 안에서 새 버전 받기를 눌렀을 때, 지금 쓰고 있는 소스가 아니라
+# 엉뚱한 자리에 새로 내려받게 됩니다.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -n "${SHELF_SOURCE_DIR:-}" ]; then
+	SOURCE_DIR="$SHELF_SOURCE_DIR"
+elif [ -d "$SCRIPT_DIR/.git" ]; then
+	SOURCE_DIR="$SCRIPT_DIR"
+else
+	SOURCE_DIR="$HOME/.shelf"
+fi
 APP_DIR="${SHELF_APP_DIR:-/Applications}"
 APP_NAME="Shelf"
 

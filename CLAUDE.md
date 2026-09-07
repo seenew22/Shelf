@@ -310,6 +310,13 @@ into `~/.shelf`, builds universal, swaps the bundle in `/Applications` and relau
 One command for both, because a separate update path is a thing to remember, and the
 history lives outside the bundle so replacing it costs nothing.
 
+`build.sh` stamps the source directory into the bundle, which is what lets the app
+update itself: the settings menu runs that copy's `install.sh` detached, and
+`install.sh` treats its own directory as the source when it sits inside a checkout,
+so updating never clones a second copy somewhere else. Detach with `nohup`, not
+`setsid` - macOS has no `setsid`, and with stderr discarded its absence looks
+exactly like nothing happening.
+
 Installation on another machine is documented for the owner in `INSTALL.md`. The one
 thing to remember when changing distribution: the app is ad-hoc signed, so `spctl`
 rejects it and a quarantined copy (AirDrop, download) will not open until
