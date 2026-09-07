@@ -59,11 +59,11 @@ struct HistoryView: View {
         .frame(width: ShelfPanel.contentWidth, height: ShelfPanel.contentHeight)
         // 테두리가 없는 패널이므로 배경과 둥근 모서리를 여기서 직접 그립니다.
         // 모서리 둥글기는 펼쳐지는 동안 함께 변하므로 고정값이 아닙니다.
-        .background(.regularMaterial)
+        .background(preferences.background.material)
         .clipShape(cardShape)
         .overlay {
             cardShape.strokeBorder(
-                isDropTargeted ? ShelfPalette.accent : ShelfPalette.cardBorder,
+                isDropTargeted ? ShelfPalette.accent(preferences.tint) : ShelfPalette.cardBorder,
                 lineWidth: isDropTargeted ? 2 : 1
             )
         }
@@ -202,9 +202,9 @@ struct HistoryView: View {
                 Text(l10n[.dropHint])
                     .font(.callout)
             }
-            .foregroundStyle(ShelfPalette.accent)
+            .foregroundStyle(ShelfPalette.accent(preferences.tint))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(.regularMaterial)
+            .background(preferences.background.material)
             .transition(.opacity)
         }
     }
@@ -284,7 +284,7 @@ struct HistoryView: View {
             preferences.keepsPanelOpen.toggle()
         } label: {
             if preferences.keepsPanelOpen {
-                Image(systemName: "lock.fill").foregroundStyle(ShelfPalette.accent)
+                Image(systemName: "lock.fill").foregroundStyle(ShelfPalette.accent(preferences.tint))
             } else {
                 Image(systemName: "lock.open").foregroundStyle(.secondary)
             }
@@ -334,6 +334,22 @@ struct HistoryView: View {
                 Picker(l10n[.menuAnimation], selection: $preferences.panelAnimationStyle) {
                     ForEach(PanelAnimationStyle.secondaryCases) { style in
                         Text(l10n[style.stringKey]).tag(style)
+                    }
+                }
+                .pickerStyle(.inline)
+            }
+
+            Menu(l10n[.menuAppearance]) {
+                Picker(l10n[.menuTint], selection: $preferences.tint) {
+                    ForEach(PanelTint.allCases) { tint in
+                        Text(l10n[tint.stringKey]).tag(tint)
+                    }
+                }
+                .pickerStyle(.inline)
+
+                Picker(l10n[.menuBackground], selection: $preferences.background) {
+                    ForEach(PanelBackground.allCases) { background in
+                        Text(l10n[background.stringKey]).tag(background)
                     }
                 }
                 .pickerStyle(.inline)
@@ -394,6 +410,7 @@ struct HistoryView: View {
                                 referenceDate: referenceDate,
                                 revealProgress: revealProgress(for: position),
                                 l10n: l10n,
+                                tint: preferences.tint,
                                 isSelected: selection.index == position,
                                 isCopied: copiedItemID == item.id,
                                 onHover: { selection.selectByPointer(position) },
@@ -480,6 +497,9 @@ private struct HistoryRow: View {
 
     @ObservedObject var l10n: LocalizationManager
 
+    /// 알려야 하는 순간에 쓰는 색입니다.
+    let tint: PanelTint
+
     /// 키보드 또는 마우스로 지금 가리키고 있는 항목인지 여부입니다.
     let isSelected: Bool
 
@@ -528,7 +548,7 @@ private struct HistoryRow: View {
             if isCopied {
                 Label(l10n[.rowCopied], systemImage: "checkmark.circle.fill")
                     .font(.caption)
-                    .foregroundStyle(ShelfPalette.accent)
+                    .foregroundStyle(ShelfPalette.accent(tint))
                     .labelStyle(.titleAndIcon)
                     .transition(.opacity)
             } else {
@@ -536,7 +556,7 @@ private struct HistoryRow: View {
                 if item.isPinned || isHovering {
                     Button(action: onTogglePin) {
                         if item.isPinned {
-                            Image(systemName: "pin.fill").foregroundStyle(ShelfPalette.accent)
+                            Image(systemName: "pin.fill").foregroundStyle(ShelfPalette.accent(tint))
                         } else {
                             Image(systemName: "pin").foregroundStyle(.tertiary)
                         }
@@ -592,7 +612,7 @@ private struct HistoryRow: View {
     }
 
     private var rowBackground: Color {
-        if isCopied { return ShelfPalette.confirmationBackground }
+        if isCopied { return ShelfPalette.confirmationBackground(tint) }
         return isSelected ? ShelfPalette.selectionBackground : Color.clear
     }
 

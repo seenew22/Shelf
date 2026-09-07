@@ -103,13 +103,21 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   there - copying something the user never pointed at. Row activation is therefore
   locked from the moment an edge drag commits until the button is actually observed
   to release, with a timeout so a missed release cannot lock it forever.
-- **`ShelfPalette`** — every colour lives here. Structure (selection, borders,
+- **`ShelfPalette`** — every colour lives here, and the accent is chosen from five
+  low-saturation presets (`PanelTint`) with a separate value for light and dark. Structure (selection, borders,
   separators) carries no hue at all, only lightness, so the panel never argues with
   whatever is behind it; colour is spent on exactly three moments - copied, pinned,
   ready to receive - and all three share one muted teal. The system accent was
   deliberately dropped: it is the same blue every app uses, it already means "link"
   and "selected" elsewhere, and leaning on it is what makes an interface look
   untouched.
+
+  A `GeometryEffect` must land exactly where it started or it leaves the view
+  permanently deformed. `WobbleEffect`'s damped cosine did not: ending on a crest
+  left rubber 1.5% narrower for good, which showed up as the header buttons sitting
+  a few points off after every appearance. A linear envelope multiplied in
+  guarantees zero at the end, and `.ignoredByLayout()` keeps the oscillation from
+  moving anything around it while it runs.
 - **`PanelAnimationStyle`** — nine named recipes; the four with the most distinct
   characters sit in the settings menu and the rest live under a submenu, because
   nine in a row is something you read rather than choose. Changing the style replays

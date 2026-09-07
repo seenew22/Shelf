@@ -1,6 +1,79 @@
 import AppKit
 import SwiftUI
 
+/// 알려야 하는 순간에 쓸 색입니다.
+///
+/// 어느 것을 골라도 화면을 어지럽히지 않도록, 모두 채도를 낮춘 색으로만 골랐습니다.
+/// 밝은 화면에서는 조금 짙게, 어두운 화면에서는 조금 밝게 잡아 두 경우 모두에서
+/// 글자와 충분히 구별됩니다.
+enum PanelTint: String, CaseIterable, Identifiable, Sendable {
+    case teal
+    case amber
+    case violet
+    case rose
+    case slate
+
+    var id: String { rawValue }
+
+    var stringKey: StringKey {
+        switch self {
+        case .teal: .tintTeal
+        case .amber: .tintAmber
+        case .violet: .tintViolet
+        case .rose: .tintRose
+        case .slate: .tintSlate
+        }
+    }
+
+    var lightColor: NSColor {
+        switch self {
+        case .teal: NSColor(srgbRed: 0.14, green: 0.47, blue: 0.42, alpha: 1)
+        case .amber: NSColor(srgbRed: 0.60, green: 0.42, blue: 0.10, alpha: 1)
+        case .violet: NSColor(srgbRed: 0.42, green: 0.34, blue: 0.62, alpha: 1)
+        case .rose: NSColor(srgbRed: 0.64, green: 0.32, blue: 0.40, alpha: 1)
+        case .slate: NSColor(srgbRed: 0.32, green: 0.38, blue: 0.46, alpha: 1)
+        }
+    }
+
+    var darkColor: NSColor {
+        switch self {
+        case .teal: NSColor(srgbRed: 0.38, green: 0.78, blue: 0.69, alpha: 1)
+        case .amber: NSColor(srgbRed: 0.86, green: 0.68, blue: 0.34, alpha: 1)
+        case .violet: NSColor(srgbRed: 0.68, green: 0.60, blue: 0.90, alpha: 1)
+        case .rose: NSColor(srgbRed: 0.90, green: 0.58, blue: 0.66, alpha: 1)
+        case .slate: NSColor(srgbRed: 0.62, green: 0.70, blue: 0.80, alpha: 1)
+        }
+    }
+}
+
+/// 카드 바탕이 뒤를 얼마나 비추는지입니다.
+enum PanelBackground: String, CaseIterable, Identifiable, Sendable {
+    /// 뒤가 많이 비칩니다.
+    case sheer
+    /// 기본값입니다.
+    case standard
+    /// 뒤가 거의 비치지 않아 글자가 가장 잘 읽힙니다.
+    case solid
+
+    var id: String { rawValue }
+
+    var stringKey: StringKey {
+        switch self {
+        case .sheer: .backgroundSheer
+        case .standard: .backgroundStandard
+        case .solid: .backgroundSolid
+        }
+    }
+
+    var material: Material {
+        switch self {
+        case .sheer: .ultraThinMaterial
+        case .standard: .regularMaterial
+        case .solid: .thickMaterial
+        }
+    }
+}
+
 /// 화면에 쓰는 색을 한곳에 모아 둡니다.
 ///
 /// 시스템 기본 강조색을 여기저기 쓰면 어느 앱에서나 보는 파란색이 화면을 채워서,
@@ -21,23 +94,24 @@ enum ShelfPalette {
 
     /// 알려야 하는 순간에만 쓰는 색입니다.
     ///
-    /// 기본 강조색인 파랑 대신 차분한 청록을 골랐습니다. 파랑은 어느 앱에서나 쓰여서
+    /// 기본 강조색인 파랑 대신 채도를 낮춘 색을 씁니다. 파랑은 어느 앱에서나 쓰여서
     /// 눈에 걸리지 않고, 링크나 선택처럼 다른 뜻으로도 읽히기 때문입니다.
-    static let accent = adaptive(
-        light: NSColor(srgbRed: 0.14, green: 0.47, blue: 0.42, alpha: 1),
-        dark: NSColor(srgbRed: 0.38, green: 0.78, blue: 0.69, alpha: 1)
-    )
+    static func accent(_ tint: PanelTint) -> Color {
+        adaptive(light: tint.lightColor, dark: tint.darkColor)
+    }
+
+    /// 방금 복사한 항목의 바탕입니다. 고른 색을 아주 옅게 깔아 둡니다.
+    static func confirmationBackground(_ tint: PanelTint) -> Color {
+        adaptive(
+            light: tint.lightColor.withAlphaComponent(0.12),
+            dark: tint.darkColor.withAlphaComponent(0.16)
+        )
+    }
 
     /// 지금 가리키고 있는 항목의 바탕입니다.
     static let selectionBackground = adaptive(
         light: NSColor(white: 0, alpha: 0.06),
         dark: NSColor(white: 1, alpha: 0.09)
-    )
-
-    /// 방금 복사한 항목의 바탕입니다. 강조색을 아주 옅게 깔아 둡니다.
-    static let confirmationBackground = adaptive(
-        light: NSColor(srgbRed: 0.14, green: 0.47, blue: 0.42, alpha: 0.12),
-        dark: NSColor(srgbRed: 0.38, green: 0.78, blue: 0.69, alpha: 0.16)
     )
 
     /// 카드의 테두리입니다.

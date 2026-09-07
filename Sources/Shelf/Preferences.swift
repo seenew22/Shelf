@@ -293,6 +293,8 @@ final class Preferences: ObservableObject {
     private static let edgeHoverKey = "edgeHoverSide"
     private static let animationStyleKey = "panelAnimationStyle"
     private static let edgeOpenModeKey = "edgeOpenMode"
+    private static let tintKey = "panelTint"
+    private static let backgroundKey = "panelBackground"
 
     /// 기본값은 사용 안 함입니다. 화면 끝을 스치기만 해도 창이 뜨면 거슬릴 수 있어서,
     /// 원하시는 분이 직접 켜도록 두었습니다.
@@ -324,6 +326,22 @@ final class Preferences: ObservableObject {
         }
     }
 
+    /// 알려야 하는 순간에 쓰는 색입니다.
+    @Published var tint: PanelTint {
+        didSet {
+            guard tint != oldValue else { return }
+            UserDefaults.standard.set(tint.rawValue, forKey: Self.tintKey)
+        }
+    }
+
+    /// 카드 바탕이 뒤를 얼마나 비추는지입니다.
+    @Published var background: PanelBackground {
+        didSet {
+            guard background != oldValue else { return }
+            UserDefaults.standard.set(background.rawValue, forKey: Self.backgroundKey)
+        }
+    }
+
     /// 창을 열어 둔 채로 두는 중인지 여부입니다.
     ///
     /// 여러 파일을 모으려면 Finder 와 선반 사이를 몇 번씩 오가야 하는데, 그때마다 창이
@@ -350,5 +368,11 @@ final class Preferences: ObservableObject {
 
         let storedMode = UserDefaults.standard.string(forKey: Self.edgeOpenModeKey)
         edgeOpenMode = storedMode.flatMap(EdgeOpenMode.init(rawValue:)) ?? .push
+
+        let storedTint = UserDefaults.standard.string(forKey: Self.tintKey)
+        tint = storedTint.flatMap(PanelTint.init(rawValue:)) ?? .teal
+
+        let storedBackground = UserDefaults.standard.string(forKey: Self.backgroundKey)
+        background = storedBackground.flatMap(PanelBackground.init(rawValue:)) ?? .standard
     }
 }

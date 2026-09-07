@@ -32,7 +32,12 @@ struct WobbleEffect: GeometryEffect {
     }
 
     func effectValue(size: CGSize) -> ProjectionTransform {
-        let wave = exp(-damping * phase) * cos(cycles * 2 * .pi * phase)
+        // 감쇠만으로는 끝나는 지점에서 정확히 0이 되지 않습니다. 물결이 마침 마루나 골에서
+        // 끝나면 그만큼이 그대로 남아서, 창이 영영 조금 눌린 채로 서 있게 됩니다.
+        // 실제로 고무줄은 가로가 1.5% 남았고, 그 탓에 머리글의 버튼 위치가 미세하게
+        // 어긋나 보였습니다. 진행도에 비례해 잦아드는 몫을 한 번 더 곱해서 0을 보장합니다.
+        let envelope = exp(-damping * phase) * (1 - phase)
+        let wave = envelope * cos(cycles * 2 * .pi * phase)
         let scaleX = 1 + amplitude.width * wave
         let scaleY = 1 + amplitude.height * wave
 
@@ -60,6 +65,9 @@ extension View {
                     damping: wobble.damping,
                     anchor: anchor
                 )
+                // 보이기만 하고 배치에는 관여하지 않게 합니다.
+                // 그러지 않으면 출렁이는 동안 주변 요소의 자리까지 함께 흔들립니다.
+                .ignoredByLayout()
             )
         } else {
             self

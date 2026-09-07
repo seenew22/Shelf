@@ -42,3 +42,14 @@
 "header.keepOpen" = "Keep open";
 "header.stopKeepingOpen" = "Stop keeping open";
 "menu.moreAnimations" = "More motions";
+"menu.appearance" = "Appearance";
+"menu.tint" = "Accent";
+"menu.background" = "Background";
+"tint.teal" = "Teal";
+"tint.amber" = "Amber";
+"tint.violet" = "Violet";
+"tint.rose" = "Rose";
+"tint.slate" = "Slate";
+"background.sheer" = "Sheer";
+"background.standard" = "Standard";
+"background.solid" = "Solid";
