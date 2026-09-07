@@ -121,6 +121,12 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   constant blur while the card scales, which looks more like a real shadow than one
   that grows with the object.
 
+  Cast it in several thin layers rather than one heavy one. A single dark shadow
+  spread wide has a distinct radius where it stops, and that ring reads as a cut
+  edge against the desktop - the panel looks pasted on. Four faint layers at
+  increasing radii fall away without any one boundary standing out. The widest layer
+  sets the window margin, so widening the falloff means widening the window too.
+
   Rotation costs window margin. A 340x460 card tilted 9 degrees and stretched to 1.22
   vertically pushes 68pt past its own bounds top and bottom, so `shadowMargin` has to
   exceed that or the corners are simply cut off - which is how the clipping bug

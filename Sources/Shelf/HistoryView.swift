@@ -95,8 +95,14 @@ struct HistoryView: View {
         // 통째로 잘려서, 나타나고 사라지는 동안 그림자가 네모나게 끊겨 보입니다.
         // 바깥에 두면 잘리지 않고, 카드가 커지고 작아지는 동안에도 그림자의 번짐 정도가
         // 일정하게 유지되어 오히려 더 자연스럽습니다.
-        .shadow(color: .black.opacity(0.45), radius: 22, y: 10)
-        .shadow(color: .black.opacity(0.28), radius: 4, y: 1)
+        //
+        // 진한 그림자 한 겹으로 넓게 번지게 하면, 잦아드는 자리가 한 줄로 도드라져서
+        // 오려 붙인 것처럼 보입니다. 옅은 그림자를 번짐 거리만 달리해서 여러 겹 포개면
+        // 가까운 쪽은 또렷하고 먼 쪽은 서서히 사라져서 경계가 드러나지 않습니다.
+        .shadow(color: .black.opacity(0.20), radius: 3, y: 1)
+        .shadow(color: .black.opacity(0.16), radius: 10, y: 4)
+        .shadow(color: .black.opacity(0.22), radius: 28, y: 12)
+        .shadow(color: .black.opacity(0.14), radius: 56, y: 20)
         // 자라날 자리와 그림자가 번질 자리를 창 안쪽에 확보해 둡니다.
         .padding(ShelfPanel.shadowMargin)
         .environment(\.locale, l10n.locale)

@@ -24,7 +24,7 @@ final class ShelfPanel: NSPanel {
     /// 9도 기울이고 세로로 1.22배 늘이면 위아래로 각 68포인트가 삐져나오므로,
     /// 여백이 그보다 작으면 그만큼 잘려 보입니다. 그림자는 그렇게 벌어진 자리에서 다시
     /// 번지므로, 삐져나오는 거리에 번지는 거리까지 더한 만큼을 잡아 두어야 합니다.
-    static let shadowMargin: CGFloat = 104
+    static let shadowMargin: CGFloat = 148
 
     /// 창이 어느 지점에서 자라나는지를 나타냅니다.
     enum SlideOrigin {
