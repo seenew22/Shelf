@@ -189,7 +189,8 @@ final class HistoryStore: ObservableObject {
             }
 
         case .file:
-            if let url = item.payloadURL(blobsDirectory: blobsDirectory) {
+            // 사본이 아니라 원본을 올려야 붙여넣은 쪽이 진짜 파일을 가리킵니다.
+            if let url = preferredFileURL(for: item) {
                 pasteboard.writeObjects([url as NSURL])
             }
         }
@@ -202,11 +203,16 @@ final class HistoryStore: ObservableObject {
         item.payloadURL(blobsDirectory: blobsDirectory)
     }
 
-    /// Finder 에서 다룰 때 쓸 위치입니다.
+    /// 이 항목을 바깥으로 내보낼 때 쓸 파일 위치입니다.
     ///
-    /// 파일 항목은 보관용 복사본이 아니라 원래 있던 자리를 보여 주어야 합니다.
-    /// 폴더를 다시 열려고 꺼낸 것인데 복사본이 열리면 쓸모가 없기 때문입니다.
-    func finderURL(for item: ClipboardItem) -> URL? {
+    /// 다시 복사하거나, 끌어내거나, Finder 에서 열 때 모두 이 값을 씁니다.
+    /// 파일 항목은 **보관용 사본이 아니라 원래 있던 자리**를 내보내야 합니다. 사본은
+    /// 히스토리가 사라져도 내용을 잃지 않으려고 두는 것이지, 그 자체를 쓰라고 두는 것이
+    /// 아닙니다. 사본을 내보내면 붙여넣은 곳이 우리 앱 안쪽 폴더를 가리키게 되고,
+    /// 그 항목이 목록에서 밀려나 지워지는 순간 함께 끊어집니다.
+    ///
+    /// 원본이 이미 사라졌다면 그때는 사본이라도 내보냅니다.
+    func preferredFileURL(for item: ClipboardItem) -> URL? {
         if item.kind == .file, let originalPath = item.originalPath {
             let original = URL(filePath: originalPath)
             if FileManager.default.fileExists(atPath: original.path) {
@@ -218,7 +224,7 @@ final class HistoryStore: ObservableObject {
 
     /// 항목에 딸린 파일을 Finder 에서 선택된 상태로 보여 줍니다.
     func revealInFinder(_ item: ClipboardItem) {
-        guard let url = finderURL(for: item) else { return }
+        guard let url = preferredFileURL(for: item) else { return }
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
@@ -232,7 +238,7 @@ final class HistoryStore: ObservableObject {
 
     /// 항목에 딸린 파일이나 폴더를 기본 앱으로 엽니다.
     func openWithDefaultApplication(_ item: ClipboardItem) {
-        guard let url = finderURL(for: item) else { return }
+        guard let url = preferredFileURL(for: item) else { return }
         NSWorkspace.shared.open(url)
     }
 

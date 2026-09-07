@@ -208,9 +208,13 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
 - **`HistoryStore`** — `ObservableObject`: ordered list, **capped at 50**, dedupe on
   re-copy (existing match moves to top), persists to disk, loads on launch.
   Pinned items sort ahead of the rest and are excluded from the cap and from
-  "clear all" - a pin that the cap can still evict is not a pin. `finderURL(for:)`
-  resolves a file item to where it actually lives rather than to the archived copy;
-  reopening a folder is the whole point, and the copy is useless for that.
+  "clear all" - a pin that the cap can still evict is not a pin. `preferredFileURL(for:)`
+  resolves a file item to where it actually lives rather than to the archived copy,
+  and everything that hands a file outward - re-copying, dragging out, revealing,
+  opening - goes through it. The copy exists so the entry survives the original being
+  deleted, not to be handed to anyone: paste it and the receiving app ends up
+  pointing inside Application Support, where it breaks the moment the entry ages out
+  of the list. The copy is the fallback, used only when the original is gone.
   Files over 50 MB are recorded by original path only, with no blob copy.
 - **`LocalizationManager`** — the UI ships in Korean and English, switchable from a
   globe button in the panel header and persisted in `UserDefaults`. Strings live in

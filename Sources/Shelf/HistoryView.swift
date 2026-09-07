@@ -417,6 +417,7 @@ struct HistoryView: View {
                             HistoryRow(
                                 item: item,
                                 payloadURL: store.payloadURL(for: item),
+                                exportURL: store.preferredFileURL(for: item),
                                 referenceDate: referenceDate,
                                 revealProgress: revealProgress(for: position),
                                 l10n: l10n,
@@ -497,7 +498,12 @@ struct HistoryView: View {
 /// 히스토리 목록의 한 행입니다. 클릭하면 다시 복사되고, 끌어내면 다른 앱으로 드래그됩니다.
 private struct HistoryRow: View {
     let item: ClipboardItem
+
+    /// 미리보기 그림을 만들 때 쓰는 위치입니다. 보관 사본을 가리킵니다.
     let payloadURL: URL?
+
+    /// 다른 앱으로 끌어낼 때 넘길 위치입니다. 파일은 원본을 가리킵니다.
+    let exportURL: URL?
 
     /// "몇 분 전"을 계산할 기준 시각입니다. 목록 전체가 같은 기준을 공유합니다.
     let referenceDate: Date
@@ -683,11 +689,11 @@ private struct HistoryRow: View {
         case .text:
             return NSItemProvider(object: (item.text ?? "") as NSString)
         case .image, .file:
-            guard let payloadURL, let provider = NSItemProvider(contentsOf: payloadURL) else {
+            guard let exportURL, let provider = NSItemProvider(contentsOf: exportURL) else {
                 return NSItemProvider()
             }
             // 확장자는 시스템이 자료형에 맞춰 다시 붙이므로, 여기서는 확장자를 뺀 이름만 넘깁니다.
-            provider.suggestedName = payloadURL.deletingPathExtension().lastPathComponent
+            provider.suggestedName = exportURL.deletingPathExtension().lastPathComponent
             return provider
         }
     }
