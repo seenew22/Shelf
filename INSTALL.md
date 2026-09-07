@@ -37,48 +37,6 @@ git clone https://github.com/seenew22/Shelf.git ~/.shelf
 지금 도는 앱이 어느 시점의 것인지는 톱니바퀴 메뉴 맨 아래에서 확인할 수 있습니다.
 `0.1.0 (43af129)` 처럼 표시되며 괄호 안이 빌드에 쓴 커밋입니다.
 
-## 저장소가 비공개일 때
-
-⚠️ **이 저장소는 지금 비공개입니다.** 그래서 위의 `git clone` 이 처음 쓰는 맥에서는
-인증을 요구하며 실패합니다. 셋 중 하나로 해결하시면 됩니다.
-
-**(1) 저장소를 공개로 바꾸기 — 가장 간단합니다**
-
-`저장소 → Settings → General → Danger Zone → Change repository visibility` 에서
-공개로 바꾸면 인증 절차가 통째로 사라지고, 위의 두 줄이 어느 맥에서나 그대로 동작합니다.
-코드에 개인 정보나 열쇠 값은 들어 있지 않습니다.
-
-**(2) SSH 키 쓰기**
-
-```bash
-ssh-keygen -t ed25519 -C "seenew22"     # 이미 키가 있다면 건너뜁니다
-cat ~/.ssh/id_ed25519.pub                # 출력된 값을 복사합니다
-```
-
-복사한 값을 `github.com → Settings → SSH and GPG keys → New SSH key` 에 등록한 뒤,
-SSH 주소로 클론합니다.
-
-```bash
-git clone git@github.com:seenew22/Shelf.git ~/.shelf
-~/.shelf/install.sh
-```
-
-**(3) GitHub CLI 로 로그인하기**
-
-```bash
-brew install gh
-gh auth login
-gh repo clone seenew22/Shelf ~/.shelf
-~/.shelf/install.sh
-```
-
-그 맥의 `gh` 에 다른 계정이 이미 로그인되어 있다면 활성 계정을 먼저 바꿔야 합니다.
-`gh` 는 활성 계정 하나로만 동작해서, 그러지 않으면 저장소가 아예 보이지 않습니다.
-
-```bash
-gh auth switch --user seenew22
-```
-
 ## 로그인할 때 자동으로 켜지게 하기
 
 `시스템 설정 → 일반 → 로그인 항목 및 확장 프로그램` 을 열고, `로그인 시 열기` 목록의
