@@ -221,7 +221,10 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   deleted, not to be handed to anyone: paste it and the receiving app ends up
   pointing inside Application Support, where it breaks the moment the entry ages out
   of the list. The copy is the fallback, used only when the original is gone.
-  Files over 50 MB are recorded by original path only, with no blob copy.
+  Files over 50 MB are recorded by original path only, with no blob copy - and so
+  are directories, which need their own check: `fileSize` is nil for a directory, so
+  a size test alone waves them straight through and `copyItem` then duplicates the
+  entire tree into Application Support. A folder's worth is where it sits anyway.
 - **`LocalizationManager`** — the UI ships in Korean and English, switchable from a
   globe button in the panel header and persisted in `UserDefaults`. Strings live in
   `Resources/<code>.lproj/Localizable.strings`; `build.sh` copies every `.lproj`

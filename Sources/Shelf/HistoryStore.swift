@@ -139,11 +139,18 @@ final class HistoryStore: ObservableObject {
 
         case .file(let url):
             let fileName = url.lastPathComponent
-            let byteCount = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+            let values = try? url.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey])
+            let isDirectory = values?.isDirectory ?? false
+            let byteCount = values?.fileSize
             var relativePath: String?
 
-            // 너무 큰 파일은 복사하지 않고 원본 위치만 기억합니다.
-            if byteCount <= Self.maximumBlobByteCount {
+            // 사본을 만들지 말아야 하는 두 경우를 거릅니다.
+            //
+            // 하나는 너무 큰 파일입니다. 다른 하나는 폴더인데, 폴더는 크기를 물어봐도
+            // 답이 없어서(`fileSize` 가 nil) 크기 검사를 그냥 통과해 버립니다. 그대로 두면
+            // 폴더 하나를 복사했을 때 그 안의 모든 것이 앱 폴더로 복제됩니다.
+            // 폴더는 어차피 그 자리에 있다는 것이 값이므로, 위치만 기억하면 충분합니다.
+            if !isDirectory, (byteCount ?? 0) <= Self.maximumBlobByteCount {
                 relativePath = copyBlob(from: url, id: id, fileName: fileName)
             }
 
