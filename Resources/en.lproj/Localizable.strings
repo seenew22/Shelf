@@ -56,3 +56,8 @@
 "background.forest" = "Forest";
 "background.paper" = "Paper";
 "background.mist" = "Mist";
+"choose.count" = "%d selected";
+"choose.copy" = "Copy together";
+"choose.delete" = "Delete";
+"choose.clear" = "Deselect";
+"choose.hint" = "Hold a row, or ⌘-click, to pick several";

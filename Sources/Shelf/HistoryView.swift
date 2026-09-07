@@ -26,6 +26,9 @@ struct HistoryView: View {
     /// 항목을 클릭해서 클립보드에 다시 올린 뒤 화면을 닫을 때 호출됩니다.
     var onCopy: (ClipboardItem) -> Void
 
+    /// 골라 둔 여러 항목을 한꺼번에 클립보드에 올릴 때 호출됩니다.
+    var onCopyMany: ([ClipboardItem]) -> Void
+
     /// 종료 메뉴를 눌렀을 때 호출됩니다.
     var onQuit: () -> Void
 
@@ -37,6 +40,10 @@ struct HistoryView: View {
 
     /// 무언가를 끌어다 창 위에 올려 두고 있는 중인지 여부입니다.
     @State private var isDropTargeted = false
+
+    /// 여러 개를 고르기 시작하면서 창 열어 두기를 우리가 켰는지 여부입니다.
+    /// 우리가 켠 것만 나중에 되돌립니다.
+    @State private var didLockForChoosing = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -115,6 +122,23 @@ struct HistoryView: View {
             isDropTargeted = false
         }
         .onChange(of: store.searchQuery) { selection.reset() }
+        // 목록에서 사라진 항목이 고른 목록에 남아 있지 않도록 정리합니다.
+        .onChange(of: store.items) {
+            selection.pruneChoices(keeping: Set(store.items.map(\.id)))
+        }
+        // 여러 개를 고르는 동안에는 창이 닫히면 안 됩니다.
+        // Finder 를 오가며 고르는 일이 흔하고, 그때마다 닫히면 고를 수가 없습니다.
+        .onChange(of: selection.isChoosingMany) {
+            if selection.isChoosingMany {
+                if !preferences.keepsPanelOpen {
+                    preferences.keepsPanelOpen = true
+                    didLockForChoosing = true
+                }
+            } else if didLockForChoosing {
+                preferences.keepsPanelOpen = false
+                didLockForChoosing = false
+            }
+        }
     }
 
     /// 번들에 기록된 버전과, 빌드에 사용한 git 커밋 해시입니다.
@@ -124,6 +148,16 @@ struct HistoryView: View {
         let revision = information?["CFBundleVersion"] as? String ?? ""
         return revision.isEmpty ? version : "\(version) (\(revision))"
     }()
+
+    /// 지금 골라 둔 항목들입니다. 목록에 보이는 순서를 그대로 따릅니다.
+    private var chosenItems: [ClipboardItem] {
+        store.visibleItems.filter { selection.chosenIDs.contains($0.id) }
+    }
+
+    /// 함께 끌어낼 파일들입니다. 글자 항목은 끌어낼 파일이 없으므로 빠집니다.
+    private var chosenFileURLs: [URL] {
+        chosenItems.compactMap { $0.isRevealableInFinder ? store.preferredFileURL(for: $0) : nil }
+    }
 
     /// 목록이 차례로 차오를 때, 이 순서의 행이 얼마나 나타났는지를 돌려줍니다.
     ///
@@ -423,6 +457,9 @@ struct HistoryView: View {
                                 l10n: l10n,
                                 tint: preferences.tint,
                                 isSelected: selection.index == position,
+                                isChosen: selection.chosenIDs.contains(item.id),
+                                isChoosingMany: selection.isChoosingMany,
+                                chosenURLs: chosenFileURLs,
                                 isCopied: copiedItemID == item.id,
                                 onHover: { selection.selectByPointer(position) },
                                 onCopy: {
@@ -430,6 +467,8 @@ struct HistoryView: View {
                                     copiedItemID = item.id
                                     onCopy(item)
                                 },
+                                onToggleChoice: { selection.toggleChoice(item.id) },
+                                onBeginChoosing: { selection.beginChoosing(item.id) },
                                 onTogglePin: {
                                     guard selection.acceptsActivation else { return }
                                     store.togglePin(item)
@@ -470,7 +509,47 @@ struct HistoryView: View {
         }
     }
 
+    @ViewBuilder
     private var footer: some View {
+        if selection.isChoosingMany {
+            choosingBar
+        } else {
+            standardFooter
+        }
+    }
+
+    /// 여러 개를 고르는 동안 바닥에 나타나는 줄입니다.
+    private var choosingBar: some View {
+        HStack(spacing: 12) {
+            Text(l10n.format(.chooseCount, chosenItems.count))
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+
+            Spacer()
+
+            Button(l10n[.chooseCopy]) {
+                onCopyMany(chosenItems)
+            }
+            .disabled(chosenItems.isEmpty)
+
+            Button(l10n[.chooseDelete]) {
+                store.remove(chosenItems)
+                selection.clearChoices()
+            }
+            .disabled(chosenItems.isEmpty)
+
+            Button(l10n[.chooseClear]) {
+                selection.clearChoices()
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .font(.caption)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private var standardFooter: some View {
         HStack(spacing: 12) {
             Button(l10n[.footerClearAll]) {
                 store.removeAll()
@@ -482,6 +561,7 @@ struct HistoryView: View {
             // 단축키를 따로 외우지 않아도 되도록 조작 방법을 적어 둡니다.
             Text(l10n[.footerKeyHints])
                 .foregroundStyle(.tertiary)
+                .help(l10n[.chooseHint])
 
             Spacer()
 
@@ -519,11 +599,22 @@ private struct HistoryRow: View {
     /// 키보드 또는 마우스로 지금 가리키고 있는 항목인지 여부입니다.
     let isSelected: Bool
 
+    /// 여러 개 고르기에서 골라 둔 항목인지 여부입니다.
+    let isChosen: Bool
+
+    /// 지금 여러 개를 고르는 중인지 여부입니다.
+    let isChoosingMany: Bool
+
+    /// 함께 끌어낼 파일들입니다. 여러 개를 고르는 중일 때만 씁니다.
+    let chosenURLs: [URL]
+
     /// 방금 이 항목을 클릭해서 클립보드에 올렸는지 여부입니다.
     let isCopied: Bool
 
     let onHover: () -> Void
     let onCopy: () -> Void
+    let onToggleChoice: () -> Void
+    let onBeginChoosing: () -> Void
     let onTogglePin: () -> Void
     let onReveal: () -> Void
     let onOpen: () -> Void
@@ -537,6 +628,15 @@ private struct HistoryRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
+            if isChoosingMany {
+                if isChosen {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(ShelfPalette.accent(tint))
+                } else {
+                    Image(systemName: "circle").foregroundStyle(.tertiary)
+                }
+            }
+
             icon
                 .frame(width: HistoryRow.iconSide, height: HistoryRow.iconSide)
 
@@ -604,8 +704,29 @@ private struct HistoryRow: View {
             // 마우스와 키보드가 서로 다른 곳을 가리키면 헷갈리므로 선택 위치를 맞춰 둡니다.
             if hovering { onHover() }
         }
-        .onTapGesture(perform: onCopy)
+        .onTapGesture {
+            // ⌘ 를 누른 채 클릭하면 고르기입니다. 그냥 클릭은 평소대로 복사입니다.
+            if NSEvent.modifierFlags.contains(.command) {
+                onToggleChoice()
+            } else {
+                onCopy()
+            }
+        }
+        // 움직이지 않고 잠시 누르고 있으면 여러 개 고르기로 들어갑니다.
+        // 움직이면 끌기로 넘어가므로, 끌어내려던 동작을 가로채지 않습니다.
+        .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 4) {
+            guard !isChoosingMany else { return }
+            onBeginChoosing()
+        }
         .onDrag(makeItemProvider)
+        // 여러 개를 고르는 중에는 누름과 끌기를 이 겹이 넘겨받습니다.
+        .overlay {
+            MultiDragLayer(
+                isActive: isChoosingMany,
+                urls: chosenURLs,
+                onClick: onToggleChoice
+            )
+        }
         .contextMenu { contextMenu }
         .task(id: item.id) { await loadThumbnailIfNeeded() }
         .help(dragHint)
@@ -629,6 +750,7 @@ private struct HistoryRow: View {
 
     private var rowBackground: Color {
         if isCopied { return ShelfPalette.confirmationBackground(tint) }
+        if isChosen { return ShelfPalette.confirmationBackground(tint) }
         return isSelected ? ShelfPalette.selectionBackground : Color.clear
     }
 

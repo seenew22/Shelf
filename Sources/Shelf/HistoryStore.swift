@@ -210,6 +210,43 @@ final class HistoryStore: ObservableObject {
         item.payloadURL(blobsDirectory: blobsDirectory)
     }
 
+    /// 여러 항목을 한꺼번에 클립보드에 올립니다.
+    ///
+    /// 항목마다 클립보드 항목을 하나씩 만들어 올리므로, 받는 앱은 여러 개를 한 번에
+    /// 붙여넣게 됩니다. 파일 두 개를 첨부하려고 두 번 오갈 필요가 없어집니다.
+    @discardableResult
+    func copyToPasteboard(_ items: [ClipboardItem]) -> Int {
+        guard items.count > 1 else {
+            return items.first.map { copyToPasteboard($0) } ?? NSPasteboard.general.changeCount
+        }
+
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects(items.compactMap(pasteboardEntry(for:)))
+        return pasteboard.changeCount
+    }
+
+    /// 항목 하나를 클립보드에 올릴 형태로 바꿉니다.
+    private func pasteboardEntry(for item: ClipboardItem) -> NSPasteboardWriting? {
+        switch item.kind {
+        case .text:
+            return (item.text ?? "") as NSString
+        case .image, .file:
+            return preferredFileURL(for: item).map { $0 as NSURL }
+        }
+    }
+
+    /// 여러 항목을 한꺼번에 지웁니다.
+    func remove(_ items: [ClipboardItem]) {
+        let doomed = Set(items.map(\.id))
+        guard !doomed.isEmpty else { return }
+        for item in self.items where doomed.contains(item.id) {
+            deleteBlobDirectory(for: item)
+        }
+        self.items.removeAll { doomed.contains($0.id) }
+        save()
+    }
+
     /// 이 항목을 바깥으로 내보낼 때 쓸 파일 위치입니다.
     ///
     /// 다시 복사하거나, 끌어내거나, Finder 에서 열 때 모두 이 값을 씁니다.

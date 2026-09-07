@@ -206,6 +206,17 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   click, so a shelf that dismisses on any of them cannot be filled. Deliberately not
   persisted - it is a mode for a task, not a preference, and a forgotten one would
   quietly disable dismissal forever.
+- **Choosing several** — a long press with no movement, or a Command-click, starts a
+  multi-selection; after that a plain click toggles. Entering it turns on keep-open
+  automatically and turns it back off on exit, but only if it was not already on -
+  picking several means walking to Finder and back, and every one of those trips
+  would otherwise dismiss the panel.
+
+  Dragging several at once needs AppKit. SwiftUI's `onDrag` vends exactly one item,
+  so `MultiDragLayer` puts an `NSView` over each row that begins a real
+  `NSDraggingSession` with one `NSDraggingItem` per file. It returns nil from
+  `hitTest` unless a multi-selection is live, so single-item behaviour is untouched,
+  and it handles the click itself while active since it has taken over the mouse.
 - **`ClipboardItem`** — model: stable `id`, `kind` (`.text` / `.image` / `.file`),
   text payload, blob path, original path, `timestamp`, preview, a content
   fingerprint used for dedupe, `isPinned`, and which app was frontmost at capture. It decodes by hand rather than by

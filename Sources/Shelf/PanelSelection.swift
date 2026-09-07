@@ -29,9 +29,41 @@ final class PanelSelection: ObservableObject {
         acceptsActivation = true
     }
 
+    /// 여러 개를 골라 둔 항목들입니다. 비어 있으면 한 개씩 다루는 평소 상태입니다.
+    @Published private(set) var chosenIDs: Set<UUID> = []
+
+    /// 지금 여러 개를 고르는 중인지 여부입니다.
+    var isChoosingMany: Bool { !chosenIDs.isEmpty }
+
+    /// 여러 개 고르기를 시작합니다.
+    func beginChoosing(_ id: UUID) {
+        chosenIDs = [id]
+    }
+
+    /// 하나를 골랐다 풀었다 합니다. 마지막 하나를 풀면 평소 상태로 돌아갑니다.
+    func toggleChoice(_ id: UUID) {
+        if chosenIDs.contains(id) {
+            chosenIDs.remove(id)
+        } else {
+            chosenIDs.insert(id)
+        }
+    }
+
+    func clearChoices() {
+        chosenIDs.removeAll()
+    }
+
+    /// 목록에서 사라진 항목이 고른 목록에 남아 있지 않도록 정리합니다.
+    func pruneChoices(keeping existing: Set<UUID>) {
+        let remaining = chosenIDs.intersection(existing)
+        guard remaining != chosenIDs else { return }
+        chosenIDs = remaining
+    }
+
     func reset() {
         index = 0
         scrollRequestID += 1
+        chosenIDs.removeAll()
     }
 
     /// 마우스를 올려서 선택이 바뀐 경우입니다. 목록은 움직이지 않습니다.

@@ -110,6 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 preferences: preferences,
                 presentation: presentation,
                 onCopy: { [weak self] item in self?.copyAndClose(item) },
+                onCopyMany: { [weak self] items in self?.copyManyAndClose(items) },
                 onQuit: { NSApp.terminate(nil) }
             )
         )
@@ -444,6 +445,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// 골라 둔 여러 항목을 한꺼번에 클립보드에 올립니다.
+    private func copyManyAndClose(_ items: [ClipboardItem]) {
+        guard let store, !items.isEmpty else { return }
+        let changeCount = store.copyToPasteboard(items)
+        clipboardMonitor?.acknowledgeSelfWrite(changeCount: changeCount)
+        selection.clearChoices()
+    }
+
     // MARK: - 창을 닫아야 하는 상황 감지
 
     /// 다른 앱이나 바탕화면을 클릭하면 창을 닫고, Esc 키에도 반응합니다.
@@ -593,6 +602,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         switch keyCode {
         case 53: // Esc
+            // 여러 개를 고르는 중이라면 먼저 그것부터 풉니다.
+            if selection.isChoosingMany {
+                selection.clearChoices()
+                return true
+            }
             // 검색 중이라면 먼저 검색어만 비웁니다. 한 번 더 누르면 창이 닫힙니다.
             if let store, !store.searchQuery.isEmpty {
                 store.searchQuery = ""
@@ -611,7 +625,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return true
 
         case 36, 76: // Return, 숫자판 Enter
-            guard let store, let item = store.visibleItems[safe: selection.index] else { return true }
+            guard let store else { return true }
+            // 여러 개를 골라 두었다면 그 전부를 한꺼번에 올립니다.
+            if selection.isChoosingMany {
+                let chosen = store.visibleItems.filter { selection.chosenIDs.contains($0.id) }
+                copyManyAndClose(chosen)
+                return true
+            }
+            guard let item = store.visibleItems[safe: selection.index] else { return true }
             // Command 를 함께 누르면 복사 대신 Finder 에서 위치를 보여 줍니다.
             if modifiers.contains(.command) {
                 guard item.isRevealableInFinder else { return true }
