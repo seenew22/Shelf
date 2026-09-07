@@ -339,6 +339,7 @@ final class Preferences: ObservableObject {
         didSet {
             guard background != oldValue else { return }
             UserDefaults.standard.set(background.rawValue, forKey: Self.backgroundKey)
+            onBackgroundChanged?(background)
         }
     }
 
@@ -359,6 +360,9 @@ final class Preferences: ObservableObject {
     /// 방식을 고르면 곧바로 그 움직임을 다시 보여 주기 위해 앱 쪽에서 연결해 둡니다.
     var onPanelAnimationStyleChanged: ((PanelAnimationStyle) -> Void)?
 
+    /// 단색 바탕을 고르면 창 전체의 밝기 모드도 함께 바꾸어야 합니다.
+    var onBackgroundChanged: ((PanelBackground) -> Void)?
+
     init() {
         let storedSide = UserDefaults.standard.string(forKey: Self.edgeHoverKey)
         edgeHoverSide = storedSide.flatMap(EdgeHoverSide.init(rawValue:)) ?? .off
@@ -373,6 +377,6 @@ final class Preferences: ObservableObject {
         tint = storedTint.flatMap(PanelTint.init(rawValue:)) ?? .teal
 
         let storedBackground = UserDefaults.standard.string(forKey: Self.backgroundKey)
-        background = storedBackground.flatMap(PanelBackground.init(rawValue:)) ?? .standard
+        background = storedBackground.flatMap(PanelBackground.init(rawValue:)) ?? .system
     }
 }

@@ -76,6 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         setUpStatusItem()
         setUpPanel(store: store, localization: localization)
+        applyBackgroundAppearance(preferences.background)
         setUpGlobalShortcut()
         setUpEdgeHover()
 
@@ -112,6 +113,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 onQuit: { NSApp.terminate(nil) }
             )
         )
+    }
+
+    /// 단색 바탕에 맞는 밝기 모드를 창 전체에 지정합니다.
+    ///
+    /// 글자 색만 따로 뒤집으면 테두리와 강조색, 구분선이 따라오지 못해서 어긋납니다.
+    /// 창의 밝기 모드를 통째로 정해 두면 그 안의 모든 색이 한꺼번에 맞춰집니다.
+    private func applyBackgroundAppearance(_ background: PanelBackground) {
+        panel?.appearance = background.appearanceName.map { NSAppearance(named: $0) } ?? nil
     }
 
     private func setUpGlobalShortcut() {
@@ -153,6 +162,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         preferences.onPanelAnimationStyleChanged = { [weak self] style in
             self?.replayEntrance(with: style)
+        }
+        preferences.onBackgroundChanged = { [weak self] background in
+            self?.applyBackgroundAppearance(background)
         }
         edgeHoverMonitor.update(mode: preferences.edgeOpenMode)
         edgeHoverMonitor.update(side: preferences.edgeHoverSide)

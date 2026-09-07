@@ -50,6 +50,9 @@
 "tint.violet" = "Violet";
 "tint.rose" = "Rose";
 "tint.slate" = "Slate";
-"background.sheer" = "Sheer";
-"background.standard" = "Standard";
-"background.solid" = "Solid";
+"background.system" = "System material";
+"background.charcoal" = "Charcoal";
+"background.midnight" = "Midnight";
+"background.forest" = "Forest";
+"background.paper" = "Paper";
+"background.mist" = "Mist";

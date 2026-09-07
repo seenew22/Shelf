@@ -50,6 +50,9 @@
 "tint.violet" = "보라";
 "tint.rose" = "장미";
 "tint.slate" = "잿빛";
-"background.sheer" = "옅게";
-"background.standard" = "기본";
-"background.solid" = "짙게";
+"background.system" = "시스템 재질";
+"background.charcoal" = "먹";
+"background.midnight" = "밤";
+"background.forest" = "숲";
+"background.paper" = "종이";
+"background.mist" = "안개";

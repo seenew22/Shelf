@@ -59,7 +59,7 @@ struct HistoryView: View {
         .frame(width: ShelfPanel.contentWidth, height: ShelfPanel.contentHeight)
         // 테두리가 없는 패널이므로 배경과 둥근 모서리를 여기서 직접 그립니다.
         // 모서리 둥글기는 펼쳐지는 동안 함께 변하므로 고정값이 아닙니다.
-        .background(preferences.background.material)
+        .background(cardBackground)
         .clipShape(cardShape)
         .overlay {
             cardShape.strokeBorder(
@@ -135,6 +135,16 @@ struct HistoryView: View {
         return min(max((presentation.contentPhase - start) / 0.2, 0), 1)
     }
 
+    /// 카드의 바탕입니다. 단색을 고르지 않았으면 뒤가 비치는 시스템 재질을 씁니다.
+    @ViewBuilder
+    private var cardBackground: some View {
+        if let fill = preferences.background.fill {
+            fill
+        } else {
+            Rectangle().fill(.regularMaterial)
+        }
+    }
+
     /// 카드의 외곽 모양입니다. 펼쳐지는 동안 둥글기가 변합니다.
     private var cardShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: presentation.cornerRadius, style: .continuous)
@@ -204,7 +214,7 @@ struct HistoryView: View {
             }
             .foregroundStyle(ShelfPalette.accent(preferences.tint))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(preferences.background.material)
+            .background(cardBackground)
             .transition(.opacity)
         }
     }

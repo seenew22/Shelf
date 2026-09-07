@@ -46,30 +46,58 @@ enum PanelTint: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// 카드 바탕이 뒤를 얼마나 비추는지입니다.
+/// 카드의 바탕입니다.
+///
+/// 기본값은 뒤가 비치는 시스템 재질이지만, 뒤에 무엇이 있느냐에 따라 매번 다르게 보입니다.
+/// 늘 같은 모습이기를 바랄 때를 위해 단색 바탕도 함께 둡니다.
+///
+/// 단색을 고르면 그 색에 맞는 밝기 모드를 창 전체에 지정합니다. 어두운 바탕에 검은 글씨가
+/// 얹히는 일이 없어야 하고, 테두리와 강조색까지 한꺼번에 따라와야 하기 때문입니다.
 enum PanelBackground: String, CaseIterable, Identifiable, Sendable {
-    /// 뒤가 많이 비칩니다.
-    case sheer
-    /// 기본값입니다.
-    case standard
-    /// 뒤가 거의 비치지 않아 글자가 가장 잘 읽힙니다.
-    case solid
+    /// 뒤가 비치는 시스템 재질입니다.
+    case system
+    /// 짙은 먹빛입니다.
+    case charcoal
+    /// 짙은 남색입니다.
+    case midnight
+    /// 짙은 숲빛입니다.
+    case forest
+    /// 미색 종이빛입니다.
+    case paper
+    /// 옅은 잿빛입니다.
+    case mist
 
     var id: String { rawValue }
 
     var stringKey: StringKey {
         switch self {
-        case .sheer: .backgroundSheer
-        case .standard: .backgroundStandard
-        case .solid: .backgroundSolid
+        case .system: .backgroundSystem
+        case .charcoal: .backgroundCharcoal
+        case .midnight: .backgroundMidnight
+        case .forest: .backgroundForest
+        case .paper: .backgroundPaper
+        case .mist: .backgroundMist
         }
     }
 
-    var material: Material {
+    /// 단색 바탕입니다. 시스템 재질을 쓰는 경우에는 nil 입니다.
+    var fill: Color? {
         switch self {
-        case .sheer: .ultraThinMaterial
-        case .standard: .regularMaterial
-        case .solid: .thickMaterial
+        case .system: return nil
+        case .charcoal: return Color(.sRGB, red: 0.118, green: 0.125, blue: 0.137)
+        case .midnight: return Color(.sRGB, red: 0.086, green: 0.114, blue: 0.204)
+        case .forest: return Color(.sRGB, red: 0.075, green: 0.145, blue: 0.118)
+        case .paper: return Color(.sRGB, red: 0.961, green: 0.945, blue: 0.910)
+        case .mist: return Color(.sRGB, red: 0.914, green: 0.925, blue: 0.937)
+        }
+    }
+
+    /// 이 바탕에 맞춰 창 전체에 지정할 밝기 모드입니다. nil 이면 시스템 설정을 따릅니다.
+    var appearanceName: NSAppearance.Name? {
+        switch self {
+        case .system: return nil
+        case .charcoal, .midnight, .forest: return .darkAqua
+        case .paper, .mist: return .aqua
         }
     }
 }
