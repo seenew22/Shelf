@@ -11,29 +11,62 @@ import Foundation
 @MainActor
 enum Updater {
 
-    /// 빌드에 쓰인 소스가 있던 자리입니다. 그 자리에 설치 스크립트가 있어야 씁니다.
-    static var installScriptURL: URL? {
-        guard let path = Bundle.main.object(forInfoDictionaryKey: "ShelfSourceDirectory") as? String else {
-            return nil
-        }
-        let script = URL(filePath: path).appending(path: "install.sh")
-        guard FileManager.default.isExecutableFile(atPath: script.path) else { return nil }
-        return script
+    /// 소스가 사라졌을 때 다시 내려받을 자리입니다.
+    static let repository = "https://github.com/seenew22/Shelf.git"
+
+    /// 갱신 과정에서 무슨 일이 있었는지 남기는 자리입니다.
+    ///
+    /// 갱신은 앱이 꺼진 뒤에도 이어지므로, 잘못되어도 앱은 그 사실을 알 방법이 없습니다.
+    /// 기록을 남겨 두면 나중에 무엇이 막혔는지 확인할 수 있습니다.
+    static var logURL: URL {
+        FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "Shelf/update.log")
     }
 
-    static var canUpdate: Bool { installScriptURL != nil }
+    /// 지금 갱신을 어떤 방법으로 할 수 있는지입니다.
+    enum Availability {
+        /// 소스가 제자리에 있습니다. 그대로 받아서 다시 빌드하면 됩니다.
+        case ready(script: URL)
+        /// 소스를 찾을 수 없습니다. 지웠거나 옮긴 경우이며, 다시 내려받아야 합니다.
+        case needsDownload(previousPath: String?)
+    }
+
+    static var availability: Availability {
+        let recorded = Bundle.main.object(forInfoDictionaryKey: "ShelfSourceDirectory") as? String
+
+        if let recorded {
+            let script = URL(filePath: recorded).appending(path: "install.sh")
+            if FileManager.default.isExecutableFile(atPath: script.path) {
+                return .ready(script: script)
+            }
+        }
+
+        return .needsDownload(previousPath: recorded)
+    }
 
     /// 새 버전을 받아서 다시 설치합니다.
     ///
-    /// 스크립트는 도중에 이 앱을 끄고 새로 켭니다. 그래서 이 앱의 자식이 아니라 따로 떨어져
-    /// 돌도록 띄웁니다. 그러지 않으면 앱이 꺼질 때 스크립트도 함께 끊겨서, 앱이 사라진 채로
-    /// 끝나 버립니다.
+    /// 소스가 사라졌다면 기본 자리에 다시 내려받은 뒤 이어서 진행합니다.
+    /// 앱을 지웠다 다시 깔 필요 없이, 이 버튼 하나로 돌아옵니다.
     static func update() {
-        guard let script = installScriptURL else { return }
+        let command: String
+        switch availability {
+        case .ready(let script):
+            command = shellQuoted(script.path)
+        case .needsDownload:
+            let fallback = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".shelf")
+            command = """
+            { [ -d \(shellQuoted(fallback.path))/.git ] \
+            || git clone \(shellQuoted(repository)) \(shellQuoted(fallback.path)); } \
+            && \(shellQuoted(fallback.appending(path: "install.sh").path))
+            """
+        }
 
         // 지금 이 앱이 놓여 있는 자리에 그대로 새것을 놓습니다.
         // 그러지 않으면 갱신할 때마다 응용 프로그램 폴더로 옮겨져서 두 벌이 남습니다.
         let installDirectory = Bundle.main.bundleURL.deletingLastPathComponent().path
+        prepareLogFile()
 
         let process = Process()
         process.executableURL = URL(filePath: "/bin/bash")
@@ -42,7 +75,8 @@ enum Updater {
         // 일어나지 않고 오류도 보이지 않습니다. nohup 은 기본으로 들어 있습니다.
         process.arguments = [
             "-lc",
-            "SHELF_APP_DIR=\(shellQuoted(installDirectory)) nohup \(shellQuoted(script.path)) >/dev/null 2>&1 &",
+            "SHELF_APP_DIR=\(shellQuoted(installDirectory)) nohup bash -c \(shellQuoted(command)) "
+                + ">> \(shellQuoted(logURL.path)) 2>&1 &",
         ]
 
         do {
@@ -52,8 +86,28 @@ enum Updater {
         }
     }
 
+    /// 이번 시도가 언제 시작되었는지 기록해 둡니다. 지난 기록과 섞이지 않게 하려는 것입니다.
+    private static func prepareLogFile() {
+        let stamp = ISO8601DateFormatter().string(from: Date())
+        let header = "\n===== 새 버전 받기 \(stamp) =====\n"
+
+        let manager = FileManager.default
+        try? manager.createDirectory(
+            at: logURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+
+        guard let handle = try? FileHandle(forWritingTo: logURL) else {
+            try? Data(header.utf8).write(to: logURL)
+            return
+        }
+        defer { try? handle.close() }
+        _ = try? handle.seekToEnd()
+        try? handle.write(contentsOf: Data(header.utf8))
+    }
+
     /// 경로에 빈칸이나 따옴표가 섞여 있어도 안전하도록 감쌉니다.
-    private static func shellQuoted(_ path: String) -> String {
-        "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    private static func shellQuoted(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 }

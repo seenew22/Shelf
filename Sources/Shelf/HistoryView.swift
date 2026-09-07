@@ -410,9 +410,12 @@ struct HistoryView: View {
             // 어느 시점의 소스로 만든 앱인지 확인할 수 있게 버전과 커밋 해시를 적어 둡니다.
             Text(verbatim: "Shelf \(Self.appVersion)")
 
-            // 소스를 받아 두고 쓰는 경우에만 나타납니다.
-            if Updater.canUpdate {
+            // 소스가 사라졌더라도 감추지 않고, 다시 내려받는다는 것을 알려 줍니다.
+            switch Updater.availability {
+            case .ready:
                 Button(l10n[.menuUpdate]) { Updater.update() }
+            case .needsDownload:
+                Button(l10n[.menuReinstall]) { Updater.update() }
             }
         } label: {
             Image(systemName: "gearshape")

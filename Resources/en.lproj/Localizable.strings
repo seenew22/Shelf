@@ -62,3 +62,4 @@
 "choose.clear" = "Deselect";
 "choose.hint" = "Hold a row, or ⌘-click, to pick several";
 "menu.update" = "Get the latest version";
+"menu.reinstall" = "Get the latest version (re-downloads the source)";
