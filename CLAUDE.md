@@ -114,10 +114,19 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   animates a 0-to-1 phase instead and computes the scale from a damped cosine each
   frame, which is what `bounce` and `rubber` are built on.
 
+  Draw the shadow *outside* opacity and the transforms. SwiftUI flattens everything
+  beneath an opacity modifier into one layer bounded by the content, so a shadow
+  applied inside that has its spill cut off square - visible as a shadow that snaps
+  to a rectangle whenever the panel fades. Outside, it survives, and it keeps a
+  constant blur while the card scales, which looks more like a real shadow than one
+  that grows with the object.
+
   Rotation costs window margin. A 340x460 card tilted 9 degrees and stretched to 1.22
   vertically pushes 68pt past its own bounds top and bottom, so `shadowMargin` has to
   exceed that or the corners are simply cut off - which is how the clipping bug
-  arrived. Departure squash is declared separately rather than inverting the arrival
+  arrived - and the shadow spills from wherever the corner reached, so the margin
+  has to cover the overhang plus the blur, not just the overhang. Departure squash
+  is declared separately rather than inverting the arrival
   values, because inverting a vertical stretch produces a horizontal one, and that
   plus tilt sent the card 73pt out each side. Keeping those on
   separate clocks is what makes the styles distinguishable; drive them from one

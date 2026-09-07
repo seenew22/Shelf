@@ -70,10 +70,6 @@ struct HistoryView: View {
         .overlay { dropHint }
         .onDrop(of: Self.acceptedDropTypes, isTargeted: $isDropTargeted, perform: acceptDrop)
         .animation(.easeOut(duration: 0.12), value: isDropTargeted)
-        // 그림자도 카드와 함께 자라야 하므로 창이 아니라 여기서 그립니다.
-        // 넓게 번지는 그림자만으로는 윤곽이 흐려서, 가까이 붙는 그림자를 한 겹 더 둡니다.
-        .shadow(color: .black.opacity(0.45), radius: 22, y: 10)
-        .shadow(color: .black.opacity(0.28), radius: 4, y: 1)
         // 열린 방향 쪽 모서리를 기준으로 부풀어 오르면서 나타납니다.
         .blur(radius: presentation.blurRadius)
         .rotationEffect(presentation.rotation, anchor: presentation.anchor)
@@ -92,7 +88,16 @@ struct HistoryView: View {
             anchor: presentation.anchor
         )
         .opacity(presentation.opacity)
-        // 자라날 자리와 그림자가 잘릴 자리를 창 안쪽에 확보해 둡니다.
+        // 그림자는 크기 변화와 투명도보다 **바깥쪽에** 그려야 합니다.
+        //
+        // SwiftUI 는 투명도를 적용할 때 그 안쪽 내용을 한 겹으로 구워내는데, 그 구워지는
+        // 범위는 내용의 크기까지입니다. 그림자를 안쪽에 두면 범위 밖으로 번진 부분이
+        // 통째로 잘려서, 나타나고 사라지는 동안 그림자가 네모나게 끊겨 보입니다.
+        // 바깥에 두면 잘리지 않고, 카드가 커지고 작아지는 동안에도 그림자의 번짐 정도가
+        // 일정하게 유지되어 오히려 더 자연스럽습니다.
+        .shadow(color: .black.opacity(0.45), radius: 22, y: 10)
+        .shadow(color: .black.opacity(0.28), radius: 4, y: 1)
+        // 자라날 자리와 그림자가 번질 자리를 창 안쪽에 확보해 둡니다.
         .padding(ShelfPanel.shadowMargin)
         .environment(\.locale, l10n.locale)
         // 창을 열 때마다 기준 시각이 갱신되므로, 그 시점에 지난번 복사 표시를 지웁니다.
