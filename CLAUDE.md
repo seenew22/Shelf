@@ -294,6 +294,11 @@ builds the second architecture into a separate scratch path with an explicit tar
 triple and joins the two with `lipo`. If that second build fails it warns and falls
 back to a native-only bundle rather than aborting.
 
+`install.sh` is the whole install and the whole update: it clones or fast-forwards
+into `~/.shelf`, builds universal, swaps the bundle in `/Applications` and relaunches.
+One command for both, because a separate update path is a thing to remember, and the
+history lives outside the bundle so replacing it costs nothing.
+
 Installation on another machine is documented for the owner in `INSTALL.md`. The one
 thing to remember when changing distribution: the app is ad-hoc signed, so `spctl`
 rejects it and a quarantined copy (AirDrop, download) will not open until

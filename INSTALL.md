@@ -8,138 +8,76 @@ Shelf를 다른 맥에 설치해서 쓰는 방법입니다.
 
 - macOS 14 (Sonoma) 이상
 - 애플 실리콘과 인텔 맥 모두 지원합니다
+- Xcode 는 필요 없습니다. 명령어 도구만 있으면 되고, 없으면 설치 스크립트가 알려 줍니다
 
-설치 방법은 두 가지입니다. **소스에서 빌드하는 방법을 권합니다.** 명령 두 줄이면
-끝나고, 그 맥의 구조에 맞는 앱이 만들어지며, 나중에 고칠 일이 생겼을 때도 그대로
-이어서 작업할 수 있기 때문입니다. 개발 도구를 설치하고 싶지 않은 맥이라면 두 번째
-방법을 쓰면 됩니다.
-
----
-
-## 방법 A — 소스에서 빌드하기 (권장)
-
-### 1. 명령어 도구 설치
-
-Xcode는 필요 없습니다. 아래 명령을 실행하면 나타나는 창에서 설치를 누릅니다.
-이미 설치되어 있다면 "이미 설치되어 있습니다"라는 메시지가 나오는데, 그대로 넘어가면
-됩니다.
+## 설치
 
 ```bash
-xcode-select --install
+git clone https://github.com/seenew22/Shelf.git ~/.shelf
+~/.shelf/install.sh
 ```
 
-설치가 끝났는지는 이 명령으로 확인합니다. 버전이 5.9 이상이면 됩니다.
+이게 전부입니다. 스크립트가 하는 일은 이렇습니다.
+
+1. 빌드에 필요한 명령어 도구가 있는지 확인하고, 없으면 설치 창을 띄웁니다
+2. 애플 실리콘과 인텔 양쪽에서 도는 앱으로 빌드합니다
+3. `/Applications` 에 놓고 실행합니다
+
+## 갱신
+
+**설치할 때와 같은 명령입니다.**
 
 ```bash
-swift --version
+~/.shelf/install.sh
 ```
 
-### 2. 저장소 접근 권한 준비하기
+새 변경만 받아서 다시 빌드하고 앱을 바꿔 끼웁니다. 히스토리와 설정은 앱 바깥
+(`~/Library/Application Support/Shelf/`)에 저장되므로 그대로 유지됩니다.
 
-**이 저장소는 비공개입니다.** 그래서 처음 쓰는 맥에서는 `git clone` 이 곧바로 되지 않고
-인증을 요구합니다. 아래 셋 중 하나를 고르면 됩니다.
+지금 도는 앱이 어느 시점의 것인지는 톱니바퀴 메뉴 맨 아래에서 확인할 수 있습니다.
+`0.1.0 (43af129)` 처럼 표시되며 괄호 안이 빌드에 쓴 커밋입니다.
 
-**(1) GitHub CLI 로 로그인하기 — 계정이 하나뿐인 맥에서 가장 간단합니다**
+## 저장소가 비공개일 때
+
+⚠️ **이 저장소는 지금 비공개입니다.** 그래서 위의 `git clone` 이 처음 쓰는 맥에서는
+인증을 요구하며 실패합니다. 셋 중 하나로 해결하시면 됩니다.
+
+**(1) 저장소를 공개로 바꾸기 — 가장 간단합니다**
+
+`저장소 → Settings → General → Danger Zone → Change repository visibility` 에서
+공개로 바꾸면 인증 절차가 통째로 사라지고, 위의 두 줄이 어느 맥에서나 그대로 동작합니다.
+코드에 개인 정보나 열쇠 값은 들어 있지 않습니다.
+
+**(2) SSH 키 쓰기**
 
 ```bash
-brew install gh      # Homebrew 가 없다면 https://brew.sh 참고
-gh auth login        # 브라우저가 열리면 seenew22 계정으로 승인합니다
+ssh-keygen -t ed25519 -C "seenew22"     # 이미 키가 있다면 건너뜁니다
+cat ~/.ssh/id_ed25519.pub                # 출력된 값을 복사합니다
 ```
 
-⚠️ **그 맥의 `gh` 에 다른 GitHub 계정이 이미 로그인되어 있다면 이것만으로는 안 됩니다.**
-`gh` 는 활성 계정 하나로만 동작해서, 활성 계정이 회사 계정이면 개인 비공개 저장소가
-아예 보이지 않고 `Could not resolve to a Repository` 로 실패합니다. 이때는 클론하기
-직전에 계정을 바꿔 주세요.
+복사한 값을 `github.com → Settings → SSH and GPG keys → New SSH key` 에 등록한 뒤,
+SSH 주소로 클론합니다.
+
+```bash
+git clone git@github.com:seenew22/Shelf.git ~/.shelf
+~/.shelf/install.sh
+```
+
+**(3) GitHub CLI 로 로그인하기**
+
+```bash
+brew install gh
+gh auth login
+gh repo clone seenew22/Shelf ~/.shelf
+~/.shelf/install.sh
+```
+
+그 맥의 `gh` 에 다른 계정이 이미 로그인되어 있다면 활성 계정을 먼저 바꿔야 합니다.
+`gh` 는 활성 계정 하나로만 동작해서, 그러지 않으면 저장소가 아예 보이지 않습니다.
 
 ```bash
 gh auth switch --user seenew22
 ```
-
-**(2) SSH 키 쓰기 — 계정을 오갈 일이 잦다면 이쪽이 편합니다**
-
-한 번 설정해 두면 활성 계정과 무관하게 항상 동작합니다.
-
-```bash
-ssh-keygen -t ed25519 -C "seenew22"          # 이미 키가 있다면 건너뜁니다
-cat ~/.ssh/id_ed25519.pub                     # 출력된 값을 복사합니다
-```
-
-복사한 값을 `github.com → Settings → SSH and GPG keys → New SSH key` 에 등록한 뒤,
-아래 3단계에서 SSH 주소로 클론하면 됩니다.
-
-**(3) 저장소를 공개로 바꾸기**
-
-`저장소 → Settings → General → Danger Zone → Change repository visibility` 에서
-공개로 바꾸면 인증 절차 자체가 사라집니다. 다만 소스가 누구에게나 보이게 되므로,
-그래도 괜찮은지 먼저 판단하셔야 합니다. 개인 정보나 열쇠 값이 코드에 들어 있지는
-않으니 기술적으로는 공개해도 문제가 없습니다.
-
-인증이 번거롭다면 아래의 **방법 B** 로 앱만 옮기는 편이 더 빠릅니다.
-
-### 3. 내려받아서 빌드하기
-
-```bash
-git clone git@github.com:seenew22/Shelf.git      # SSH 키를 등록한 경우
-# 또는
-gh repo clone seenew22/Shelf                     # gh 활성 계정이 seenew22 인 경우
-
-cd Shelf
-./build.sh --run
-```
-
-> 참고: 지금 이 맥에는 개인 계정용 SSH 설정이 따로 잡혀 있어서 저장소 주소가
-> `git@github.com-personal:seenew22/Shelf.git` 로 되어 있습니다. 그 별칭은 이 맥의
-> `~/.ssh/config` 에만 있는 것이므로, 다른 맥에서는 위의 일반 주소를 쓰시면 됩니다.
-
-빌드가 끝나면 메뉴 바 오른쪽에 트레이 모양 아이콘이 나타납니다. Dock에는 아이콘이
-생기지 않습니다. 이것이 정상입니다.
-
-### 4. 응용 프로그램 폴더로 옮기기
-
-내려받은 폴더 안에서 계속 실행해도 동작하지만, 폴더를 옮기거나 지우면 앱도 함께
-사라집니다. 계속 쓰실 거라면 옮겨 두는 편이 좋습니다.
-
-```bash
-pkill -x Shelf
-mv Shelf.app /Applications/
-open /Applications/Shelf.app
-```
-
----
-
-## 방법 B — 만들어 둔 앱을 옮기기
-
-개발 도구를 설치하지 않을 맥에 넣을 때 쓰는 방법입니다.
-
-### 1. 이 맥에서 유니버설 앱 만들기
-
-`--universal` 을 붙이면 애플 실리콘과 인텔 양쪽에서 도는 앱이 만들어집니다.
-받는 맥의 구조를 신경 쓰지 않아도 됩니다.
-
-```bash
-./build.sh --universal
-```
-
-만들어진 `Shelf.app` 을 AirDrop이나 USB 저장 장치로 옮깁니다.
-
-### 2. 받는 맥에서 격리 표식 지우기
-
-**이 단계를 건너뛰면 앱이 열리지 않습니다.** macOS는 인터넷이나 AirDrop으로 받은
-파일에 격리 표식을 붙이는데, 정식 서명을 받지 않은 앱은 이 표식이 붙어 있으면
-"손상되었기 때문에 열 수 없습니다" 같은 안내와 함께 실행이 막힙니다. 앱이 실제로
-손상된 것이 아니라, 서명을 확인할 수 없다는 뜻입니다.
-
-`Shelf.app` 을 응용 프로그램 폴더에 넣은 뒤 터미널에서 아래를 실행합니다.
-
-```bash
-xattr -dr com.apple.quarantine /Applications/Shelf.app
-open /Applications/Shelf.app
-```
-
-USB 저장 장치나 `git clone` 으로 가져온 경우에는 격리 표식이 붙지 않으므로 이 단계가
-필요 없습니다. 그래도 실행해서 손해 볼 일은 없습니다.
-
----
 
 ## 로그인할 때 자동으로 켜지게 하기
 

@@ -5,27 +5,22 @@
 끌어내면 다른 앱에 진짜 파일로 떨어집니다. 모든 데이터는 이 맥 안에만 저장되며
 서버와 통신하지 않습니다.
 
-## 설치
+## 설치와 갱신
 
 macOS 14 이상이 필요하며, 애플 실리콘과 인텔 맥을 모두 지원합니다.
-Xcode는 필요하지 않고 Command Line Tools만 있으면 됩니다.
 
 ```bash
-xcode-select --install     # 이미 설치되어 있다면 건너뜁니다
-git clone git@github.com:seenew22/Shelf.git
-cd Shelf
-./build.sh --run
+git clone https://github.com/seenew22/Shelf.git ~/.shelf
+~/.shelf/install.sh
 ```
 
-이 저장소는 비공개라서 처음 쓰는 맥에서는 인증을 한 번 준비해야 합니다. SSH 키를
-쓰거나 `gh auth login` 으로 로그인하면 되며, 자세한 방법과 주의할 점은
-[INSTALL.md](INSTALL.md) 에 정리해 두었습니다.
+**설치와 갱신이 같은 명령입니다.** 나중에 새 버전을 받으려면 `~/.shelf/install.sh` 를
+다시 실행하면 됩니다. 알아서 새 변경만 받아서 다시 빌드하고, 응용 프로그램 폴더의 앱을
+바꿔 끼운 뒤 실행합니다. 히스토리와 설정은 앱 바깥에 저장되므로 그대로 유지됩니다.
 
-메뉴 바 오른쪽에 트레이 모양 아이콘이 나타나면 성공입니다. Dock에는 아이콘이 생기지
-않습니다.
+빌드에 필요한 명령어 도구가 없으면 설치 창을 띄우고 알려 줍니다. Xcode 는 필요 없습니다.
 
-다른 맥으로 앱을 옮기는 방법, 로그인할 때 자동 실행하는 방법, 문제가 생겼을 때의
-대처는 **[INSTALL.md](INSTALL.md)** 에 정리해 두었습니다.
+자세한 내용과 문제가 생겼을 때의 대처는 [INSTALL.md](INSTALL.md) 에 있습니다.
 
 ## 빌드 옵션
 
