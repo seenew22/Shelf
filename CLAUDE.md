@@ -186,6 +186,12 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   notification, so polling changeCount is the standard, correct approach. When the
   count changes, read the current pasteboard, classify the type, apply privacy rules,
   dedupe, and prepend to the store.
+
+  Reading `public.file-url` is not enough to catch every copied file. VS Code and its
+  forks put nothing standard on the pasteboard at all - just `code/file-list` holding
+  newline-separated `file://` URLs - so files copied from the editor sidebar vanished
+  silently while Finder copies worked, which reads as "file copying is broken"
+  because there is no way to tell the two apart from outside.
 - **Dropping onto the panel** — `HistoryView` accepts file URLs, PNG/TIFF and plain
   text dropped on the card, so things can be collected without going through the
   clipboard. One provider usually advertises several types at once, so the handler

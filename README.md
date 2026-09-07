@@ -224,6 +224,8 @@ cd Shelf
 
 - **클립보드 감지**: macOS에는 클립보드 변경을 알려주는 공개 알림이 없기 때문에,
   `NSPasteboard` 의 `changeCount` 를 0.4초마다 확인하는 방식으로 새 복사를 감지합니다.
+- **파일 복사**: Finder 뿐 아니라 VS Code 계열 편집기(Cursor 포함)에서 복사한 파일도
+  담깁니다. 편집기는 표준 형식 대신 자체 형식으로 올려서 따로 읽어 주어야 합니다.
 - **저장 위치**: `~/Library/Application Support/Shelf/`
   - `history.json` — 항목 목록과 텍스트 본문
   - `blobs/<UUID>/<원본 이름>` — 이미지와 파일의 복사본
