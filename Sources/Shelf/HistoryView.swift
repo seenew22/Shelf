@@ -508,11 +508,16 @@ struct HistoryView: View {
     /// 목록의 행 하나를 만듭니다.
     ///
     /// 목록 안에 그대로 쓰면 하나의 식이 너무 길어져서 컴파일러가 타입을 맞추지 못합니다.
-    private func row(for item: ClipboardItem, at position: Int, referenceDate: Date) -> some View {
+    private func row(
+        for item: ClipboardItem,
+        at position: Int,
+        referenceDate: Date,
+        dragBundle: [URL]
+    ) -> some View {
         HistoryRow(
             item: item,
-            payloadURL: store.payloadURL(for: item),
-            exportURL: store.preferredFileURL(for: item),
+            resolveThumbnailURL: { store.payloadURL(for: item) },
+            resolveExportURL: { store.preferredFileURL(for: item) },
             referenceDate: referenceDate,
             revealProgress: revealProgress(for: position),
             l10n: l10n,
@@ -520,7 +525,7 @@ struct HistoryView: View {
             isSelected: selection.index == position,
             isChosen: selection.chosenIDs.contains(item.id),
             isChoosingMany: selection.isChoosingMany,
-            chosenURLs: chosenFileURLs,
+            chosenURLs: dragBundle,
             highlightNamespace: highlightNamespace,
             isCopied: copiedItemID == item.id,
             onHover: { selection.selectByPointer(position) },
@@ -554,19 +559,23 @@ struct HistoryView: View {
             // 창을 열 때 갱신되는 기준 시각과, 창이 열려 있는 동안의 주기적 갱신 중
             // 더 늦은 쪽을 사용합니다. 둘 중 하나만으로는 시간 표시가 멈춰 버립니다.
             let referenceDate = max(context.date, store.referenceDate)
+            // 행마다 다시 구하면 고른 개수만큼 디스크를 반복해서 두드립니다.
+            let dragBundle = chosenFileURLs
             ScrollViewReader { scrollProxy in
                 ScrollView {
                     LazyVStack(spacing: 2) {
                         ForEach(Array(store.visibleItems.enumerated()), id: \.element.id) { position, item in
-                            row(for: item, at: position, referenceDate: referenceDate)
+                            row(for: item, at: position, referenceDate: referenceDate, dragBundle: dragBundle)
                         }
                     }
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
                     // 화살표로 옮기거나 마우스를 옮길 때, 강조 표시가 행 사이를 미끄러집니다.
-                    .animation(.spring(duration: 0.24, bounce: 0.18), value: selection.index)
+                    // 탄성을 주면 제자리를 지나쳤다 돌아오면서 들썩이는 것처럼 보입니다.
+                    .animation(.spring(duration: 0.20, bounce: 0), value: selection.index)
                     // 항목을 지우거나 새로 복사했을 때 목록이 툭 끊기지 않고 이어지게 합니다.
-                    .animation(.spring(duration: 0.26, bounce: 0.3), value: store.visibleItems)
+                    // 항목 전체를 견주면 글자까지 하나하나 맞춰 봐야 하므로 차례만 견줍니다.
+                    .animation(.spring(duration: 0.26, bounce: 0.3), value: store.visibleItems.map(\.id))
                 }
                 // 끌어내는 동작이 끝날 때까지 목록은 아무 반응도 하지 않습니다.
                 //
@@ -658,11 +667,15 @@ struct HistoryView: View {
 private struct HistoryRow: View {
     let item: ClipboardItem
 
-    /// 미리보기 그림을 만들 때 쓰는 위치입니다. 보관 사본을 가리킵니다.
-    let payloadURL: URL?
+    /// 미리보기 그림을 만들 때 쓰는 위치를 구합니다. 보관 사본을 가리킵니다.
+    ///
+    /// 미리 구해서 넘기지 않고 필요할 때 부릅니다. 위치를 구하려면 파일이 실제로 있는지
+    /// 디스크에 물어봐야 하는데, 그것을 화면 그릴 때마다 모든 행에 대해 하면 목록을
+    /// 훑는 것만으로도 수백 번 디스크를 두드리게 되어 눈에 띄게 버벅입니다.
+    let resolveThumbnailURL: () -> URL?
 
-    /// 다른 앱으로 끌어낼 때 넘길 위치입니다. 파일은 원본을 가리킵니다.
-    let exportURL: URL?
+    /// 다른 앱으로 끌어낼 때 넘길 위치를 구합니다. 파일은 원본을 가리킵니다.
+    let resolveExportURL: () -> URL?
 
     /// "몇 분 전"을 계산할 기준 시각입니다. 목록 전체가 같은 기준을 공유합니다.
     let referenceDate: Date
@@ -960,7 +973,7 @@ private struct HistoryRow: View {
         case .text:
             return NSItemProvider(object: (item.text ?? "") as NSString)
         case .image, .file:
-            guard let exportURL, let provider = NSItemProvider(contentsOf: exportURL) else {
+            guard let exportURL = resolveExportURL(), let provider = NSItemProvider(contentsOf: exportURL) else {
                 return NSItemProvider()
             }
             // 확장자는 시스템이 자료형에 맞춰 다시 붙이므로, 여기서는 확장자를 뺀 이름만 넘깁니다.
@@ -974,7 +987,7 @@ private struct HistoryRow: View {
     /// 원본을 통째로 읽어서 줄이면 큰 스크린샷 하나에도 메모리를 크게 쓰므로,
     /// ImageIO에게 축소본만 만들어 달라고 요청합니다. 가로세로 비율도 그대로 유지됩니다.
     private func loadThumbnailIfNeeded() async {
-        guard item.kind == .image, thumbnail == nil, let payloadURL else { return }
+        guard item.kind == .image, thumbnail == nil, let payloadURL = resolveThumbnailURL() else { return }
         // 레티나 화면에서도 또렷하도록 표시 크기의 세 배로 만듭니다.
         let maximumPixelSize = Int(HistoryRow.iconSide * 3)
         thumbnail = await Task.detached(priority: .utility) {

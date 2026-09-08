@@ -216,6 +216,11 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   row's height - so a slow approach to a long entry made the row twitch under the
   cursor. Their space is reserved at a fixed width now and they fade in, which also
   keeps the copied badge from shifting anything when it takes their place.
+- **Resolving a file URL touches the disk.** `payloadURL` and `preferredFileURL` both
+  ask whether the file still exists, so handing them to every row as a value meant
+  up to 250 filesystem calls every time the pointer crossed a row - felt as an
+  intermittent hitch while scanning the list. Rows take closures and call them only
+  when a thumbnail is first built or a drag actually starts.
 - **Keep open** — `Preferences.keepsPanelOpen` suspends every automatic dismissal:
   pointer-leave, outside clicks, and closing after a copy. Collecting several files
   means walking to Finder and back repeatedly, and each of those trips is an outside
