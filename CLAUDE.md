@@ -200,27 +200,6 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   ignores everything while a mouse button is held, which is what makes dragging a
   window to the screen edge safe, and telling that apart from dragging a file there
   needs a separate mechanism.
-- **Hover detail** — the bar above the footer, not `.help()`. macOS only shows a
-  tooltip for the active application, and this one never activates, so `.help()`
-  renders nothing here at all - the same class of failure as the popover. Drawing it
-  inside the card also means it can never overflow a screen edge.
-
-  It has to be an overlay that ignores hit testing, not a row in the stack. Inserting
-  it below the list shortens the list, which slides the hovered row out from under
-  the pointer, which ends the hover, which removes the bar, which restores the row -
-  a flicker that never settles. Anything that appears in response to hovering must
-  not move what is being hovered, and must not intercept the pointer either.
-
-  The same rule caught the row's own buttons. Adding the pin and delete controls only
-  while hovering narrowed the text beside them, which rewrapped it, which changed the
-  row's height - so a slow approach to a long entry made the row twitch under the
-  cursor. Their space is reserved at a fixed width now and they fade in, which also
-  keeps the copied badge from shifting anything when it takes their place.
-- **Resolving a file URL touches the disk.** `payloadURL` and `preferredFileURL` both
-  ask whether the file still exists, so handing them to every row as a value meant
-  up to 250 filesystem calls every time the pointer crossed a row - felt as an
-  intermittent hitch while scanning the list. Rows take closures and call them only
-  when a thumbnail is first built or a drag actually starts.
 - **Keep open** — `Preferences.keepsPanelOpen` suspends every automatic dismissal:
   pointer-leave, outside clicks, and closing after a copy. Collecting several files
   means walking to Finder and back repeatedly, and each of those trips is an outside

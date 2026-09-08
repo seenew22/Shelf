@@ -41,12 +41,6 @@ struct HistoryView: View {
     /// 무언가를 끌어다 창 위에 올려 두고 있는 중인지 여부입니다.
     @State private var isDropTargeted = false
 
-    /// 마우스를 올려 둔 항목의 전체 내용입니다. 보여 줄 것이 없으면 nil 입니다.
-    @State private var hoveredDetail: String?
-
-    /// 목록을 훑고 지나갈 때마다 뜨지 않도록 잠시 기다리는 작업입니다.
-    @State private var detailTask: Task<Void, Never>?
-
     /// 선택 표시가 행 사이를 미끄러지도록 잇기 위한 이름표입니다.
     @Namespace private var highlightNamespace
 
@@ -67,11 +61,6 @@ struct HistoryView: View {
                 noMatchesState
             } else {
                 list
-                    // 목록 아래에 끼워 넣으면 목록이 그만큼 줄어들고, 그 바람에 행이
-                    // 커서 밑에서 빠져나가 호버가 풀립니다. 그러면 줄이 사라지고 목록이
-                    // 다시 늘어나 행이 돌아오면서 깜빡임이 끝없이 되풀이됩니다.
-                    // 위에 덮어씌우면 목록 크기가 그대로라 그 되먹임이 생기지 않습니다.
-                    .overlay(alignment: .bottom) { detailBar }
             }
 
             separator
@@ -199,51 +188,6 @@ struct HistoryView: View {
     }
 
     // MARK: - 구성 요소
-
-    /// 마우스를 올려 둔 항목의 전체 내용을 바닥에 펼쳐 보여 줍니다.
-    ///
-    /// macOS 기본 도움말 풍선은 앱이 활성 상태일 때만 나타납니다. 이 앱은 일부러 포커스를
-    /// 가져가지 않으므로 그 방식으로는 아무것도 뜨지 않습니다. 그래서 직접 그립니다.
-    /// 창 안에 자리를 잡아 두면 화면 밖으로 넘칠 일도 없습니다.
-    @ViewBuilder
-    private var detailBar: some View {
-        if let hoveredDetail {
-            VStack(spacing: 0) {
-                Rectangle()
-                    .fill(ShelfPalette.separator)
-                    .frame(height: 1)
-
-                Text(hoveredDetail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(.regularMaterial)
-            }
-            // 덮고 있는 행에 마우스가 그대로 닿아야 호버가 유지됩니다.
-            // 이 줄이 마우스를 가로채면 다시 깜빡임이 시작됩니다.
-            .allowsHitTesting(false)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-        }
-    }
-
-    /// 목록을 빠르게 훑고 지나갈 때마다 뜨지 않도록 잠시 기다렸다가 보여 줍니다.
-    private func showDetail(_ detail: String?) {
-        detailTask?.cancel()
-
-        guard let detail else {
-            withAnimation(.easeOut(duration: 0.12)) { hoveredDetail = nil }
-            return
-        }
-
-        detailTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(320))
-            guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.16)) { hoveredDetail = detail }
-        }
-    }
 
     /// 머리글과 바닥글을 목록과 나누는 선입니다.
     /// 기본 구분선은 화면마다 두께와 색이 달라서, 직접 그려 두께를 고정합니다.
@@ -529,7 +473,6 @@ struct HistoryView: View {
             highlightNamespace: highlightNamespace,
             isCopied: copiedItemID == item.id,
             onHover: { selection.selectByPointer(position) },
-            onDetail: showDetail,
             onCopy: {
                 guard selection.acceptsActivation else { return }
                 copiedItemID = item.id
@@ -708,9 +651,6 @@ private struct HistoryRow: View {
 
     let onHover: () -> Void
 
-    /// 마우스를 올렸을 때 더 보여 줄 내용이 있으면 알려 줍니다. 없으면 nil 입니다.
-    let onDetail: (String?) -> Void
-
     let onCopy: () -> Void
     let onToggleChoice: () -> Void
     let onBeginChoosing: () -> Void
@@ -783,7 +723,6 @@ private struct HistoryRow: View {
             isHovering = hovering
             // 마우스와 키보드가 서로 다른 곳을 가리키면 헷갈리므로 선택 위치를 맞춰 둡니다.
             if hovering { onHover() }
-            onDetail(hovering ? extraDetail : nil)
         }
         .onTapGesture {
             // ⌘ 를 누른 채 클릭하면 고르기입니다. 그냥 클릭은 평소대로 복사입니다.
@@ -921,39 +860,6 @@ private struct HistoryRow: View {
         let elapsed = referenceDate.timeIntervalSince(item.timestamp)
         guard elapsed >= 5 else { return l10n[.rowJustNow] }
         return l10n.relativeTimeFormatter.localizedString(for: item.timestamp, relativeTo: referenceDate)
-    }
-
-    /// 목록에서 두 줄 안에 들어가는 글이라면 마우스를 올려도 새로 보여 줄 것이 없다고 봅니다.
-    /// 이 길이를 넘거나 줄바꿈이 섞여 있으면 뒤가 잘렸을 가능성이 높습니다.
-    private static let likelyTruncatedLength = 60
-
-    /// 마우스를 올렸을 때 너무 긴 글이 창을 뒤덮지 않도록 자릅니다.
-    private static let hoverDetailLimit = 800
-
-    /// 마우스를 올렸을 때 보여 줄 내용입니다.
-    ///
-    /// 목록에서는 두 줄까지만 보이므로 긴 글은 뒤가 잘립니다. 그 뒷부분을 보려고 따로
-    /// 미리보기 화면을 띄우기보다, 이미 있는 자리에서 전체를 보여 주는 편이 가볍습니다.
-    ///
-    /// 더 알려 줄 것이 없을 때는 대신 다루는 방법을 알려 줍니다. 짧은 글을 그대로 한 번 더
-    /// 보여 주는 것은 아무 쓸모가 없기 때문입니다. 파일은 이름이 같아도 어느 폴더에
-    /// 있느냐로 갈리므로 언제나 전체 경로를 보여 줍니다.
-    private var extraDetail: String? {
-        switch item.kind {
-        case .text:
-            let full = (item.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            let mayBeCutOff = full.count > Self.likelyTruncatedLength || full.contains(where: \.isNewline)
-            guard mayBeCutOff else { return nil }
-            return full.count > Self.hoverDetailLimit
-                ? String(full.prefix(Self.hoverDetailLimit)) + "…"
-                : full
-
-        case .file:
-            return item.originalPath
-
-        case .image:
-            return nil
-        }
     }
 
     private var dragHint: String {
