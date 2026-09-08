@@ -67,9 +67,13 @@ struct HistoryView: View {
                 noMatchesState
             } else {
                 list
+                    // 목록 아래에 끼워 넣으면 목록이 그만큼 줄어들고, 그 바람에 행이
+                    // 커서 밑에서 빠져나가 호버가 풀립니다. 그러면 줄이 사라지고 목록이
+                    // 다시 늘어나 행이 돌아오면서 깜빡임이 끝없이 되풀이됩니다.
+                    // 위에 덮어씌우면 목록 크기가 그대로라 그 되먹임이 생기지 않습니다.
+                    .overlay(alignment: .bottom) { detailBar }
             }
 
-            detailBar
             separator
             footer
         }
@@ -212,12 +216,15 @@ struct HistoryView: View {
                 Text(hoveredDetail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(5)
-                    .textSelection(.enabled)
+                    .lineLimit(4)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
+                    .background(.regularMaterial)
             }
+            // 덮고 있는 행에 마우스가 그대로 닿아야 호버가 유지됩니다.
+            // 이 줄이 마우스를 가로채면 다시 깜빡임이 시작됩니다.
+            .allowsHitTesting(false)
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }

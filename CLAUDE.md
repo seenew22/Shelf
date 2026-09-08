@@ -204,6 +204,12 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   tooltip for the active application, and this one never activates, so `.help()`
   renders nothing here at all - the same class of failure as the popover. Drawing it
   inside the card also means it can never overflow a screen edge.
+
+  It has to be an overlay that ignores hit testing, not a row in the stack. Inserting
+  it below the list shortens the list, which slides the hovered row out from under
+  the pointer, which ends the hover, which removes the bar, which restores the row -
+  a flicker that never settles. Anything that appears in response to hovering must
+  not move what is being hovered, and must not intercept the pointer either.
 - **Keep open** — `Preferences.keepsPanelOpen` suspends every automatic dismissal:
   pointer-leave, outside clicks, and closing after a copy. Collecting several files
   means walking to Finder and back repeatedly, and each of those trips is an outside
