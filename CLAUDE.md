@@ -210,6 +210,12 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   the pointer, which ends the hover, which removes the bar, which restores the row -
   a flicker that never settles. Anything that appears in response to hovering must
   not move what is being hovered, and must not intercept the pointer either.
+
+  The same rule caught the row's own buttons. Adding the pin and delete controls only
+  while hovering narrowed the text beside them, which rewrapped it, which changed the
+  row's height - so a slow approach to a long entry made the row twitch under the
+  cursor. Their space is reserved at a fixed width now and they fade in, which also
+  keeps the copied badge from shifting anything when it takes their place.
 - **Keep open** — `Preferences.keepsPanelOpen` suspends every automatic dismissal:
   pointer-leave, outside clicks, and closing after a copy. Collecting several files
   means walking to Finder and back repeatedly, and each of those trips is an outside

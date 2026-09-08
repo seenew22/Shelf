@@ -709,6 +709,9 @@ private struct HistoryRow: View {
     /// 목록 왼쪽 아이콘 칸의 한 변 길이입니다.
     static let iconSide: CGFloat = 34
 
+    /// 오른쪽 버튼 자리의 너비입니다. 복사됨 표시까지 들어갈 만큼 잡아 둡니다.
+    static let trailingWidth: CGFloat = 62
+
     @State private var isHovering = false
     @State private var thumbnail: NSImage?
 
@@ -747,35 +750,13 @@ private struct HistoryRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            if isCopied {
-                Label(l10n[.rowCopied], systemImage: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(ShelfPalette.accent(tint))
-                    .labelStyle(.titleAndIcon)
-                    .transition(.opacity)
-            } else {
-                // 고정한 항목은 마우스를 올리지 않아도 표시가 남아 있어야 합니다.
-                if item.isPinned || isHovering {
-                    Button(action: onTogglePin) {
-                        if item.isPinned {
-                            Image(systemName: "pin.fill").foregroundStyle(ShelfPalette.accent(tint))
-                        } else {
-                            Image(systemName: "pin").foregroundStyle(.tertiary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .help(l10n[item.isPinned ? .rowUnpin : .rowPin])
-                }
-
-                if isHovering {
-                    Button(action: onDelete) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.tertiary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(l10n[.rowDelete])
-                }
-            }
+            // 오른쪽 자리는 무엇이 놓이든 늘 같은 너비를 차지합니다.
+            //
+            // 마우스를 올릴 때 버튼이 새로 생겨나면 그만큼 글자 영역이 좁아지고, 줄바꿈이
+            // 달라지면서 행 높이까지 바뀝니다. 그러면 행이 커서 밑에서 움직여 호버가 풀리고,
+            // 버튼이 사라져 원래대로 돌아가고, 다시 호버가 붙는 일이 끝없이 되풀이됩니다.
+            trailingControls
+                .frame(width: Self.trailingWidth, alignment: .trailing)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 7)
@@ -850,6 +831,42 @@ private struct HistoryRow: View {
             shape
                 .fill(ShelfPalette.selectionBackground)
                 .matchedGeometryEffect(id: "hoveredRow", in: highlightNamespace)
+        }
+    }
+
+    /// 행 오른쪽에 놓이는 것들입니다. 무엇이 놓이든 차지하는 너비는 같습니다.
+    @ViewBuilder
+    private var trailingControls: some View {
+        if isCopied {
+            Label(l10n[.rowCopied], systemImage: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(ShelfPalette.accent(tint))
+                .labelStyle(.titleAndIcon)
+                .transition(.opacity)
+        } else {
+            HStack(spacing: 6) {
+                // 고정한 항목은 마우스를 올리지 않아도 표시가 남아 있어야 합니다.
+                Button(action: onTogglePin) {
+                    if item.isPinned {
+                        Image(systemName: "pin.fill").foregroundStyle(ShelfPalette.accent(tint))
+                    } else {
+                        Image(systemName: "pin").foregroundStyle(.tertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .help(l10n[item.isPinned ? .rowUnpin : .rowPin])
+                .opacity(item.isPinned || isHovering ? 1 : 0)
+                .allowsHitTesting(item.isPinned || isHovering)
+
+                Button(action: onDelete) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .help(l10n[.rowDelete])
+                .opacity(isHovering ? 1 : 0)
+                .allowsHitTesting(isHovering)
+            }
         }
     }
 
