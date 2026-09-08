@@ -41,6 +41,15 @@ struct HistoryView: View {
     /// 무언가를 끌어다 창 위에 올려 두고 있는 중인지 여부입니다.
     @State private var isDropTargeted = false
 
+    /// 마우스를 올려 둔 항목의 전체 내용입니다. 보여 줄 것이 없으면 nil 입니다.
+    @State private var hoveredDetail: String?
+
+    /// 목록을 훑고 지나갈 때마다 뜨지 않도록 잠시 기다리는 작업입니다.
+    @State private var detailTask: Task<Void, Never>?
+
+    /// 선택 표시가 행 사이를 미끄러지도록 잇기 위한 이름표입니다.
+    @Namespace private var highlightNamespace
+
     /// 여러 개를 고르기 시작하면서 창 열어 두기를 우리가 켰는지 여부입니다.
     /// 우리가 켠 것만 나중에 되돌립니다.
     @State private var didLockForChoosing = false
@@ -60,6 +69,7 @@ struct HistoryView: View {
                 list
             }
 
+            detailBar
             separator
             footer
         }
@@ -185,6 +195,48 @@ struct HistoryView: View {
     }
 
     // MARK: - 구성 요소
+
+    /// 마우스를 올려 둔 항목의 전체 내용을 바닥에 펼쳐 보여 줍니다.
+    ///
+    /// macOS 기본 도움말 풍선은 앱이 활성 상태일 때만 나타납니다. 이 앱은 일부러 포커스를
+    /// 가져가지 않으므로 그 방식으로는 아무것도 뜨지 않습니다. 그래서 직접 그립니다.
+    /// 창 안에 자리를 잡아 두면 화면 밖으로 넘칠 일도 없습니다.
+    @ViewBuilder
+    private var detailBar: some View {
+        if let hoveredDetail {
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(ShelfPalette.separator)
+                    .frame(height: 1)
+
+                Text(hoveredDetail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(5)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+            }
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
+    /// 목록을 빠르게 훑고 지나갈 때마다 뜨지 않도록 잠시 기다렸다가 보여 줍니다.
+    private func showDetail(_ detail: String?) {
+        detailTask?.cancel()
+
+        guard let detail else {
+            withAnimation(.easeOut(duration: 0.12)) { hoveredDetail = nil }
+            return
+        }
+
+        detailTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(320))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.16)) { hoveredDetail = detail }
+        }
+    }
 
     /// 머리글과 바닥글을 목록과 나누는 선입니다.
     /// 기본 구분선은 화면마다 두께와 색이 달라서, 직접 그려 두께를 고정합니다.
@@ -445,6 +497,49 @@ struct HistoryView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+
+    /// 목록의 행 하나를 만듭니다.
+    ///
+    /// 목록 안에 그대로 쓰면 하나의 식이 너무 길어져서 컴파일러가 타입을 맞추지 못합니다.
+    private func row(for item: ClipboardItem, at position: Int, referenceDate: Date) -> some View {
+        HistoryRow(
+            item: item,
+            payloadURL: store.payloadURL(for: item),
+            exportURL: store.preferredFileURL(for: item),
+            referenceDate: referenceDate,
+            revealProgress: revealProgress(for: position),
+            l10n: l10n,
+            tint: preferences.tint,
+            isSelected: selection.index == position,
+            isChosen: selection.chosenIDs.contains(item.id),
+            isChoosingMany: selection.isChoosingMany,
+            chosenURLs: chosenFileURLs,
+            highlightNamespace: highlightNamespace,
+            isCopied: copiedItemID == item.id,
+            onHover: { selection.selectByPointer(position) },
+            onDetail: showDetail,
+            onCopy: {
+                guard selection.acceptsActivation else { return }
+                copiedItemID = item.id
+                onCopy(item)
+            },
+            onToggleChoice: { selection.toggleChoice(item.id) },
+            onBeginChoosing: { selection.beginChoosing(item.id) },
+            onTogglePin: {
+                guard selection.acceptsActivation else { return }
+                store.togglePin(item)
+            },
+            onReveal: { store.revealInFinder(item) },
+            onOpen: { store.openWithDefaultApplication(item) },
+            onDelete: {
+                guard selection.acceptsActivation else { return }
+                store.remove(item)
+            }
+        )
+        .id(item.id)
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
     private var list: some View {
         // 목록 전체를 하나의 시간 기준으로 묶어서, 행마다 타이머를 두지 않고도
         // "몇 분 전" 표시가 1분마다 함께 갱신되도록 합니다.
@@ -456,44 +551,13 @@ struct HistoryView: View {
                 ScrollView {
                     LazyVStack(spacing: 2) {
                         ForEach(Array(store.visibleItems.enumerated()), id: \.element.id) { position, item in
-                            HistoryRow(
-                                item: item,
-                                payloadURL: store.payloadURL(for: item),
-                                exportURL: store.preferredFileURL(for: item),
-                                referenceDate: referenceDate,
-                                revealProgress: revealProgress(for: position),
-                                l10n: l10n,
-                                tint: preferences.tint,
-                                isSelected: selection.index == position,
-                                isChosen: selection.chosenIDs.contains(item.id),
-                                isChoosingMany: selection.isChoosingMany,
-                                chosenURLs: chosenFileURLs,
-                                isCopied: copiedItemID == item.id,
-                                onHover: { selection.selectByPointer(position) },
-                                onCopy: {
-                                    guard selection.acceptsActivation else { return }
-                                    copiedItemID = item.id
-                                    onCopy(item)
-                                },
-                                onToggleChoice: { selection.toggleChoice(item.id) },
-                                onBeginChoosing: { selection.beginChoosing(item.id) },
-                                onTogglePin: {
-                                    guard selection.acceptsActivation else { return }
-                                    store.togglePin(item)
-                                },
-                                onReveal: { store.revealInFinder(item) },
-                                onOpen: { store.openWithDefaultApplication(item) },
-                                onDelete: {
-                                    guard selection.acceptsActivation else { return }
-                                    store.remove(item)
-                                }
-                            )
-                            .id(item.id)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
+                            row(for: item, at: position, referenceDate: referenceDate)
                         }
                     }
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
+                    // 화살표로 옮기거나 마우스를 옮길 때, 강조 표시가 행 사이를 미끄러집니다.
+                    .animation(.spring(duration: 0.24, bounce: 0.18), value: selection.index)
                     // 항목을 지우거나 새로 복사했을 때 목록이 툭 끊기지 않고 이어지게 합니다.
                     .animation(.spring(duration: 0.26, bounce: 0.3), value: store.visibleItems)
                 }
@@ -616,10 +680,17 @@ private struct HistoryRow: View {
     /// 함께 끌어낼 파일들입니다. 여러 개를 고르는 중일 때만 씁니다.
     let chosenURLs: [URL]
 
+    /// 강조 표시가 행 사이를 미끄러지도록 잇기 위한 이름표입니다.
+    let highlightNamespace: Namespace.ID
+
     /// 방금 이 항목을 클릭해서 클립보드에 올렸는지 여부입니다.
     let isCopied: Bool
 
     let onHover: () -> Void
+
+    /// 마우스를 올렸을 때 더 보여 줄 내용이 있으면 알려 줍니다. 없으면 nil 입니다.
+    let onDetail: (String?) -> Void
+
     let onCopy: () -> Void
     let onToggleChoice: () -> Void
     let onBeginChoosing: () -> Void
@@ -705,12 +776,13 @@ private struct HistoryRow: View {
         .offset(x: (1 - revealProgress) * 16)
         .contentShape(Rectangle())
         // 화면 폭을 가득 채우는 띠보다, 안쪽으로 들어간 둥근 바탕이 훨씬 정돈되어 보입니다.
-        .background(rowBackground, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .background { highlight }
         .animation(.spring(duration: 0.24, bounce: 0.45), value: isCopied)
         .onHover { hovering in
             isHovering = hovering
             // 마우스와 키보드가 서로 다른 곳을 가리키면 헷갈리므로 선택 위치를 맞춰 둡니다.
             if hovering { onHover() }
+            onDetail(hovering ? extraDetail : nil)
         }
         .onTapGesture {
             // ⌘ 를 누른 채 클릭하면 고르기입니다. 그냥 클릭은 평소대로 복사입니다.
@@ -737,7 +809,7 @@ private struct HistoryRow: View {
         }
         .contextMenu { contextMenu }
         .task(id: item.id) { await loadThumbnailIfNeeded() }
-        .help(hoverDetail)
+        .help(dragHint)
     }
 
     @ViewBuilder
@@ -756,10 +828,22 @@ private struct HistoryRow: View {
         Button(l10n[.rowDelete], role: .destructive, action: onDelete)
     }
 
-    private var rowBackground: Color {
-        if isCopied { return ShelfPalette.confirmationBackground(tint) }
-        if isChosen { return ShelfPalette.confirmationBackground(tint) }
-        return isSelected ? ShelfPalette.selectionBackground : Color.clear
+    /// 행의 바탕입니다.
+    ///
+    /// 지금 가리키고 있는 표시는 행마다 따로 그리지 않고 **하나를 옮겨 다니게** 합니다.
+    /// 그래야 화살표로 옮기거나 마우스를 옮길 때 표시가 툭툭 옮겨 붙지 않고 미끄러집니다.
+    /// 복사되었거나 골라 둔 표시는 여러 행에 동시에 있을 수 있으므로 각자 그립니다.
+    @ViewBuilder
+    private var highlight: some View {
+        let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
+
+        if isCopied || isChosen {
+            shape.fill(ShelfPalette.confirmationBackground(tint))
+        } else if isSelected {
+            shape
+                .fill(ShelfPalette.selectionBackground)
+                .matchedGeometryEffect(id: "hoveredRow", in: highlightNamespace)
+        }
     }
 
     @ViewBuilder
@@ -817,21 +901,21 @@ private struct HistoryRow: View {
     /// 더 알려 줄 것이 없을 때는 대신 다루는 방법을 알려 줍니다. 짧은 글을 그대로 한 번 더
     /// 보여 주는 것은 아무 쓸모가 없기 때문입니다. 파일은 이름이 같아도 어느 폴더에
     /// 있느냐로 갈리므로 언제나 전체 경로를 보여 줍니다.
-    private var hoverDetail: String {
+    private var extraDetail: String? {
         switch item.kind {
         case .text:
             let full = (item.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             let mayBeCutOff = full.count > Self.likelyTruncatedLength || full.contains(where: \.isNewline)
-            guard mayBeCutOff else { return dragHint }
+            guard mayBeCutOff else { return nil }
             return full.count > Self.hoverDetailLimit
                 ? String(full.prefix(Self.hoverDetailLimit)) + "…"
                 : full
 
         case .file:
-            return item.originalPath ?? item.preview
+            return item.originalPath
 
         case .image:
-            return dragHint
+            return nil
         }
     }
 

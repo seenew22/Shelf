@@ -200,6 +200,10 @@ Explain native-specific concepts briefly as you go; don't assume macOS-dev fluen
   ignores everything while a mouse button is held, which is what makes dragging a
   window to the screen edge safe, and telling that apart from dragging a file there
   needs a separate mechanism.
+- **Hover detail** — the bar above the footer, not `.help()`. macOS only shows a
+  tooltip for the active application, and this one never activates, so `.help()`
+  renders nothing here at all - the same class of failure as the popover. Drawing it
+  inside the card also means it can never overflow a screen edge.
 - **Keep open** — `Preferences.keepsPanelOpen` suspends every automatic dismissal:
   pointer-leave, outside clicks, and closing after a copy. Collecting several files
   means walking to Finder and back repeatedly, and each of those trips is an outside
