@@ -737,7 +737,7 @@ private struct HistoryRow: View {
         }
         .contextMenu { contextMenu }
         .task(id: item.id) { await loadThumbnailIfNeeded() }
-        .help(dragHint)
+        .help(hoverDetail)
     }
 
     @ViewBuilder
@@ -800,6 +800,39 @@ private struct HistoryRow: View {
         let elapsed = referenceDate.timeIntervalSince(item.timestamp)
         guard elapsed >= 5 else { return l10n[.rowJustNow] }
         return l10n.relativeTimeFormatter.localizedString(for: item.timestamp, relativeTo: referenceDate)
+    }
+
+    /// 목록에서 두 줄 안에 들어가는 글이라면 마우스를 올려도 새로 보여 줄 것이 없다고 봅니다.
+    /// 이 길이를 넘거나 줄바꿈이 섞여 있으면 뒤가 잘렸을 가능성이 높습니다.
+    private static let likelyTruncatedLength = 60
+
+    /// 마우스를 올렸을 때 너무 긴 글이 창을 뒤덮지 않도록 자릅니다.
+    private static let hoverDetailLimit = 800
+
+    /// 마우스를 올렸을 때 보여 줄 내용입니다.
+    ///
+    /// 목록에서는 두 줄까지만 보이므로 긴 글은 뒤가 잘립니다. 그 뒷부분을 보려고 따로
+    /// 미리보기 화면을 띄우기보다, 이미 있는 자리에서 전체를 보여 주는 편이 가볍습니다.
+    ///
+    /// 더 알려 줄 것이 없을 때는 대신 다루는 방법을 알려 줍니다. 짧은 글을 그대로 한 번 더
+    /// 보여 주는 것은 아무 쓸모가 없기 때문입니다. 파일은 이름이 같아도 어느 폴더에
+    /// 있느냐로 갈리므로 언제나 전체 경로를 보여 줍니다.
+    private var hoverDetail: String {
+        switch item.kind {
+        case .text:
+            let full = (item.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let mayBeCutOff = full.count > Self.likelyTruncatedLength || full.contains(where: \.isNewline)
+            guard mayBeCutOff else { return dragHint }
+            return full.count > Self.hoverDetailLimit
+                ? String(full.prefix(Self.hoverDetailLimit)) + "…"
+                : full
+
+        case .file:
+            return item.originalPath ?? item.preview
+
+        case .image:
+            return dragHint
+        }
     }
 
     private var dragHint: String {
